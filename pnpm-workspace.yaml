@@ -1,0 +1,3 @@
+# Placeholder for future use; do not define packages yet.
+# Single-package repo today; reserved for monorepo migration.
+packages: []
