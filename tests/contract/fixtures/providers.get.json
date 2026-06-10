@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "upstreamRequest": {
+    "method": "GET",
+    "pathname": "/v1/users/me/providers/66666666-6666-4666-8666-666666666601",
+    "headers": { "Authorization": "Bearer <any-jwt>" }
+  },
+  "upstreamResponse": {
+    "status": 200,
+    "headers": { "Content-Type": "application/json" },
+    "body": {
+      "id": "66666666-6666-4666-8666-666666666601",
+      "label": "OpenAI",
+      "base_url": "https://api.openai.com",
+      "model": "gpt-4o",
+      "is_default": true,
+      "created_at": "2026-01-01T00:00:00Z"
+    }
+  },
+  "expectedResponse": {
+    "id": "66666666-6666-4666-8666-666666666601",
+    "label": "OpenAI",
+    "base_url": "https://api.openai.com",
+    "model": "gpt-4o",
+    "is_default": true,
+    "created_at": "2026-01-01T00:00:00Z"
+  }
+}

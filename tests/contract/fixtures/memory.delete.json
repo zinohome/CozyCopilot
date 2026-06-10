@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "upstreamRequest": {
+    "method": "DELETE",
+    "pathname": "/api/v1/memories/mem-abc-123",
+    "headers": {
+      "X-Cozy-API-Key": "<service-key>",
+      "Authorization": "Bearer <any-jwt>"
+    }
+  },
+  "upstreamResponse": {
+    "status": 200,
+    "headers": { "Content-Type": "application/json" },
+    "body": {
+      "id": "mem-abc-123",
+      "deleted": true
+    }
+  },
+  "expectedResponse": {
+    "id": "mem-abc-123",
+    "deleted": true
+  }
+}

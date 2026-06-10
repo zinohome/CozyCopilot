@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "_note": "Multipart body is not representable in JSON. The chat.voice contract test is intentionally skipped — the existing unit test at app/api/cozy/chat/voice/route.test.ts covers the multipart path. This fixture is retained for documentation purposes and is loaded by no contract test.",
+  "upstreamRequest": {
+    "method": "POST",
+    "pathname": "/v1/voice/chat",
+    "headers": {
+      "Authorization": "Bearer <any-jwt>"
+    },
+    "body": {
+      "_contentType": "multipart/form-data",
+      "_fields": ["session_id", "personality_id", "audio"]
+    }
+  },
+  "upstreamResponse": {
+    "status": 200,
+    "headers": { "Content-Type": "application/json" },
+    "body": {
+      "transcript": "hi there",
+      "reply_text": "hello",
+      "reply_audio_url": "https://cdn.example.com/reply-101.mp3",
+      "message_id": "44444444-4444-4444-8444-444444444401"
+    }
+  },
+  "expectedResponse": {
+    "transcript": "hi there",
+    "reply_text": "hello",
+    "reply_audio_url": "https://cdn.example.com/reply-101.mp3",
+    "message_id": "44444444-4444-4444-8444-444444444401"
+  }
+}
