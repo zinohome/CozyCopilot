@@ -1,15 +1,24 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { POST } from "./route";
 
 describe("POST /api/cozy/chat", () => {
+  let originalFetch: typeof global.fetch;
+
+  beforeEach(() => {
+    originalFetch = global.fetch;
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
   it("forwards SSE chunks from CozyEngineV2", async () => {
     const sseBody = [
       'data: {"type":"delta","content":"hi"}',
       'data: {"type":"done"}',
       "",
-    ].join("\n");
+    ].join("\n\n");
 
-    const original = global.fetch;
     global.fetch = (async () =>
       new Response(sseBody, {
         status: 200,
@@ -34,7 +43,5 @@ describe("POST /api/cozy/chat", () => {
 
     const text = await res.text();
     expect(text).toContain('"content":"hi"');
-
-    global.fetch = original;
   });
 });

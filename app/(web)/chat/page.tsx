@@ -2,31 +2,42 @@
 
 import { useAuthStore } from "@/stores/auth";
 import { useSessionStore } from "@/stores/session";
-import { streamChat, type ChatStreamEvent } from "@/lib/api/chat";
+import { streamChat } from "@/lib/api/chat";
+import { ApiError } from "@/lib/api/errors";
 import { Composer } from "@/features/chat/Composer";
 import { MessageList } from "@/features/chat/MessageList";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
-
-const ASSISTANT_ID = "current-assistant";
+import { useEffect, useRef } from "react";
 
 export default function ChatPage() {
   const jwt = useAuthStore((s) => s.jwt);
   const router = useRouter();
-  const { messages, appendMessage, startStreaming, appendDelta, finishStreaming, markError } =
+  const messages = useSessionStore((s) => s.messages);
+  const { appendMessage, startStreaming, appendDelta, finishStreaming, markError } =
     useSessionStore();
+  const controllerRef = useRef<AbortController | null>(null);
 
+  // Auth gate: redirect to /login if no JWT
   useEffect(() => {
     if (!jwt) router.replace("/login");
   }, [jwt, router]);
 
+  // Cleanup: abort any in-flight stream on unmount
+  useEffect(() => {
+    return () => {
+      controllerRef.current?.abort();
+    };
+  }, []);
+
   async function handleSend(text: string) {
     if (!jwt) return;
 
+    const assistantId = crypto.randomUUID();
     appendMessage({ role: "user", content: text, status: "done" });
-    startStreaming(ASSISTANT_ID);
+    startStreaming(assistantId);
 
     const controller = new AbortController();
+    controllerRef.current = controller;
 
     try {
       const events = streamChat(
@@ -49,14 +60,18 @@ export default function ChatPage() {
       );
 
       for await (const evt of events) {
-        const e = evt as ChatStreamEvent;
-        if (e.type === "delta") appendDelta(ASSISTANT_ID, e.content);
-        else if (e.type === "done") finishStreaming(ASSISTANT_ID);
-        else if (e.type === "error") markError(ASSISTANT_ID, e.code);
+        if (evt.type === "delta") appendDelta(assistantId, evt.content);
+        else if (evt.type === "done") finishStreaming(assistantId);
+        else if (evt.type === "error") markError(assistantId, evt.code);
       }
     } catch (e) {
-      if ((e as Error).message !== "aborted by user") {
-        markError(ASSISTANT_ID, "STREAM_INTERRUPTED");
+      // User-initiated abort (cleanup effect or browser navigation) — leave the
+      // message in its current streaming state, the unmount will clear it.
+      if (e instanceof ApiError && e.code === "ABORTED") return;
+      markError(assistantId, "STREAM_INTERRUPTED");
+    } finally {
+      if (controllerRef.current === controller) {
+        controllerRef.current = null;
       }
     }
   }
