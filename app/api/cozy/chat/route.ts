@@ -1,4 +1,10 @@
 import { z } from "zod";
+import {
+  parseJsonBody,
+  passThroughSSE,
+  unauthorizedResponse,
+  validateBody,
+} from "@/lib/api/bff";
 
 const ChatRequestSchema = z.object({
   session_id: z.string().uuid(),
@@ -12,52 +18,14 @@ const COZY_ENGINE_URL = process.env.COZY_ENGINE_URL ?? "http://localhost:8000";
 export async function POST(req: Request) {
   const auth = req.headers.get("Authorization");
   if (!auth?.startsWith("Bearer ")) {
-    return new Response(
-      JSON.stringify({
-        ok: false,
-        error: {
-          code: "UNAUTHORIZED",
-          message: "missing bearer token",
-          userMessage: "请重新登录",
-          retryable: false,
-        },
-      }),
-      { status: 401, headers: { "Content-Type": "application/json" } },
-    );
+    return unauthorizedResponse();
   }
 
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return new Response(
-      JSON.stringify({
-        ok: false,
-        error: {
-          code: "VALIDATION_ERROR",
-          message: "invalid json",
-          userMessage: "请求格式有误",
-          retryable: false,
-        },
-      }),
-      { status: 400, headers: { "Content-Type": "application/json" } },
-    );
-  }
-  const parsed = ChatRequestSchema.safeParse(body);
-  if (!parsed.success) {
-    return new Response(
-      JSON.stringify({
-        ok: false,
-        error: {
-          code: "VALIDATION_ERROR",
-          message: parsed.error.message,
-          userMessage: "请求格式有误",
-          retryable: false,
-        },
-      }),
-      { status: 400, headers: { "Content-Type": "application/json" } },
-    );
-  }
+  const parsedJson = await parseJsonBody(req);
+  if (!parsedJson.ok) return parsedJson.response;
+
+  const validated = validateBody(parsedJson.body, ChatRequestSchema);
+  if (!validated.ok) return validated.response;
 
   const upstream = await fetch(`${COZY_ENGINE_URL}/v1/chat/completions`, {
     method: "POST",
@@ -65,31 +33,8 @@ export async function POST(req: Request) {
       "Content-Type": "application/json",
       Authorization: auth,
     },
-    body: JSON.stringify(parsed.data),
+    body: JSON.stringify(validated.data),
   });
 
-  if (!upstream.ok || !upstream.body) {
-    return new Response(
-      JSON.stringify({
-        ok: false,
-        error: {
-          code: "PROVIDER_UNAVAILABLE",
-          message: `upstream HTTP ${upstream.status}`,
-          userMessage: "服务暂时不可用，请稍后重试",
-          retryable: true,
-        },
-      }),
-      { status: 502, headers: { "Content-Type": "application/json" } },
-    );
-  }
-
-  // Passthrough SSE — no buffering
-  return new Response(upstream.body, {
-    status: 200,
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache, no-transform",
-      Connection: "keep-alive",
-    },
-  });
+  return passThroughSSE(upstream);
 }
