@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { NextRequest } from "next/server";
 import { POST } from "./route";
 
 describe("POST /api/cozy/chat", () => {
@@ -36,7 +37,7 @@ describe("POST /api/cozy/chat", () => {
       }),
     });
 
-    const res = await POST(req as any);
+    const res = await POST(req as unknown as NextRequest);
     expect(res.headers.get("Content-Type")).toBe("text/event-stream");
 
     const text = await res.text();

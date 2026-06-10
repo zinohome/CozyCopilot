@@ -1,10 +1,11 @@
 import { describe, it, expect } from "vitest";
+import { NextRequest } from "next/server";
 import { POST } from "./route";
 
 describe("POST /api/cozy/auth", () => {
   it("returns 400 on missing body", async () => {
     const req = new Request("http://localhost/api/cozy/auth", { method: "POST" });
-    const res = await POST(req as any);
+    const res = await POST(req as unknown as NextRequest);
     expect(res.status).toBe(400);
   });
 
@@ -28,7 +29,7 @@ describe("POST /api/cozy/auth", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: "alice@test.com", password: "pw" }),
     });
-    const res = await POST(req as any);
+    const res = await POST(req as unknown as NextRequest);
     const body = await res.json();
 
     expect(res.status).toBe(200);
