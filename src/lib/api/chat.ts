@@ -65,7 +65,11 @@ export async function* streamChat(
         if (signal?.aborted) break;
       }
     } catch (e) {
-      if (!error) error = e instanceof Error ? new ApiError("STREAM_INTERRUPTED", e.message) : new ApiError("STREAM_INTERRUPTED", String(e));
+      if (!error)
+        error =
+          e instanceof Error
+            ? new ApiError("STREAM_INTERRUPTED", e.message)
+            : new ApiError("STREAM_INTERRUPTED", String(e));
     } finally {
       done = true;
     }

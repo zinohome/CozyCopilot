@@ -13,11 +13,9 @@ describe("POST /api/cozy/chat", () => {
   });
 
   it("forwards SSE chunks from CozyEngineV2", async () => {
-    const sseBody = [
-      'data: {"type":"delta","content":"hi"}',
-      'data: {"type":"done"}',
-      "",
-    ].join("\n\n");
+    const sseBody = ['data: {"type":"delta","content":"hi"}', 'data: {"type":"done"}', ""].join(
+      "\n\n",
+    );
 
     global.fetch = (async () =>
       new Response(sseBody, {

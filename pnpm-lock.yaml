@@ -42,6 +42,9 @@ importers:
         specifier: ^5.0.0
         version: 5.0.14(@types/react@19.2.17)(react@19.2.7)
     devDependencies:
+      '@eslint/eslintrc':
+        specifier: ^3.3.5
+        version: 3.3.5
       '@playwright/test':
         specifier: ^1.48.0
         version: 1.60.0

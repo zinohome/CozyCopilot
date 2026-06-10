@@ -29,33 +29,23 @@ export const useSessionStore = create<SessionState>()((set) => ({
 
   appendMessage: (msg) =>
     set((s) => ({
-      messages: [
-        ...s.messages,
-        { ...msg, id: msg.id ?? crypto.randomUUID() } as Message,
-      ],
+      messages: [...s.messages, { ...msg, id: msg.id ?? crypto.randomUUID() } as Message],
     })),
 
   startStreaming: (id) =>
     set((s) => ({
-      messages: [
-        ...s.messages,
-        { id, role: "assistant", content: "", status: "streaming" },
-      ],
+      messages: [...s.messages, { id, role: "assistant", content: "", status: "streaming" }],
       streamingMessageId: id,
     })),
 
   appendDelta: (id, delta) =>
     set((s) => ({
-      messages: s.messages.map((m) =>
-        m.id === id ? { ...m, content: m.content + delta } : m,
-      ),
+      messages: s.messages.map((m) => (m.id === id ? { ...m, content: m.content + delta } : m)),
     })),
 
   finishStreaming: (id) =>
     set((s) => ({
-      messages: s.messages.map((m) =>
-        m.id === id ? { ...m, status: "done" } : m,
-      ),
+      messages: s.messages.map((m) => (m.id === id ? { ...m, status: "done" } : m)),
       streamingMessageId: null,
     })),
 

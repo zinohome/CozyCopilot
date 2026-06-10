@@ -19,9 +19,7 @@ describe("MessageList", () => {
   it("shows streaming indicator on streaming assistant message", () => {
     render(
       <MessageList
-        messages={[
-          { id: "2", role: "assistant", content: "hel", status: "streaming" },
-        ]}
+        messages={[{ id: "2", role: "assistant", content: "hel", status: "streaming" }]}
       />,
     );
     expect(screen.getByTestId("streaming-indicator")).toBeInTheDocument();

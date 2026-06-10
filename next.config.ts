@@ -9,9 +9,7 @@ const nextConfig: NextConfig = {
   // in the future; for M1 the entire app is SSR.
   output: isEmbed ? "export" : undefined,
   images: {
-    remotePatterns: [
-      { protocol: "https", hostname: "**.cozycopilot.com" },
-    ],
+    remotePatterns: [{ protocol: "https", hostname: "**.cozycopilot.com" }],
   },
   // Allow embedding CozyCopilot widget inside cross-origin iframes.
   // We intentionally do NOT set X-Frame-Options here: it only understands
@@ -23,9 +21,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/:path*",
-        headers: [
-          { key: "Content-Security-Policy", value: "frame-ancestors *" },
-        ],
+        headers: [{ key: "Content-Security-Policy", value: "frame-ancestors *" }],
       },
     ];
   },

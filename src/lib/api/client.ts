@@ -37,20 +37,22 @@ export function createApiClient(config: ApiClientConfig) {
     // discriminated union contract they expect, not a thrown SyntaxError.
     if (!res.ok) {
       let body: unknown = null;
-      try { body = await res.json(); } catch { /* non-JSON error body */ }
-      return (
-        (body && typeof body === "object" && "ok" in body && body.ok === false
-          ? (body as ApiErrorBody)
-          : {
-              ok: false as const,
-              error: {
-                code: "UNKNOWN",
-                message: `HTTP ${res.status}`,
-                userMessage: "请求失败，请稍后重试",
-                retryable: res.status >= 500,
-              },
-            })
-      );
+      try {
+        body = await res.json();
+      } catch {
+        /* non-JSON error body */
+      }
+      return body && typeof body === "object" && "ok" in body && body.ok === false
+        ? (body as ApiErrorBody)
+        : {
+            ok: false as const,
+            error: {
+              code: "UNKNOWN",
+              message: `HTTP ${res.status}`,
+              userMessage: "请求失败，请稍后重试",
+              retryable: res.status >= 500,
+            },
+          };
     }
     return res.json() as Promise<ApiResult<T>>;
   }

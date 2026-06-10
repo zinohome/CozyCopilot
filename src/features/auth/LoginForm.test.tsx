@@ -18,9 +18,9 @@ describe("LoginForm", () => {
 
   it("disables button while submitting", async () => {
     let resolveSubmit!: () => void;
-    const onSubmit = vi.fn().mockImplementation(
-      () => new Promise<void>((r) => (resolveSubmit = r)),
-    );
+    const onSubmit = vi
+      .fn()
+      .mockImplementation(() => new Promise<void>((r) => (resolveSubmit = r)));
     render(<LoginForm onSubmit={onSubmit} />);
     await userEvent.type(screen.getByLabelText(/邮箱/i), "a@b.c");
     await userEvent.type(screen.getByLabelText(/密码/i), "x");

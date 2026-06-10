@@ -6,11 +6,7 @@ export const metadata: Metadata = {
   description: "A warmer AI chat experience",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="zh-CN" suppressHydrationWarning>
       <body className="min-h-screen bg-bg text-fg antialiased">{children}</body>
