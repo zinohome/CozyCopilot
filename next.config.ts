@@ -13,14 +13,17 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "**.cozycopilot.com" },
     ],
   },
-  // Allow embedding CozyCopilot widget inside cross-origin iframes
+  // Allow embedding CozyCopilot widget inside cross-origin iframes.
+  // We intentionally do NOT set X-Frame-Options here: it only understands
+  // SAMEORIGIN/DENY (no ALLOW-FROM), and SAMEORIGIN would defeat the embed
+  // use case on legacy browsers/proxies that prefer the more restrictive
+  // header. CSP frame-ancestors * is the modern, embed-friendly equivalent.
   async headers() {
     if (!isEmbed) return [];
     return [
       {
         source: "/:path*",
         headers: [
-          { key: "X-Frame-Options", value: "SAMEORIGIN" },
           { key: "Content-Security-Policy", value: "frame-ancestors *" },
         ],
       },
