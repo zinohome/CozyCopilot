@@ -1,0 +1,29 @@
+@import "tailwindcss";
+@import "./tokens.css";
+
+@theme {
+  --color-bg: rgb(var(--color-bg));
+  --color-fg: rgb(var(--color-fg));
+  --color-muted: rgb(var(--color-muted));
+  --color-muted-fg: rgb(var(--color-muted-fg));
+  --color-border: rgb(var(--color-border));
+  --color-accent: rgb(var(--color-accent));
+  --color-accent-fg: rgb(var(--color-accent-fg));
+  --color-accent-hover: rgb(var(--color-accent-hover));
+  --radius-default: var(--radius);
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    "Noto Sans SC",
+    "PingFang SC",
+    "Microsoft YaHei",
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+}

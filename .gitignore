@@ -1,0 +1,15 @@
+node_modules/
+.next/
+dist/
+out/
+.turbo/
+coverage/
+test-results/
+playwright-report/
+*.log
+.DS_Store
+.env*.local
+src-tauri/target/
+ios/Pods/
+android/app/build/
+*.tsbuildinfo
