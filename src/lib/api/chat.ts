@@ -1,5 +1,5 @@
 import { createParser, type ParseEvent } from "eventsource-parser";
-import { ApiError } from "./errors";
+import { ApiError, ERROR_CODES, type ErrorCode } from "./errors";
 
 export interface ChatDeltaEvent {
   type: "delta";
@@ -23,13 +23,35 @@ export interface StreamChatRequest {
   model?: string;
 }
 
+/**
+ * Build a normalized ApiError from a `code` + `message` pair. The `code` is
+ * looked up in `ERROR_CODES` to decide retryability; unknown / missing codes
+ * fall back to `STREAM_INTERRUPTED` (retryable), which is the safe default
+ * for any mid-stream failure the server didn't classify.
+ */
+function normalizeStreamError(code: unknown, message: unknown): ApiError {
+  if (typeof code === "string" && code in ERROR_CODES) {
+    const meta = ERROR_CODES[code as ErrorCode];
+    return new ApiError(
+      code as ErrorCode,
+      typeof message === "string" ? message : "stream error",
+      meta.retryable,
+    );
+  }
+  return new ApiError(
+    "STREAM_INTERRUPTED",
+    typeof message === "string" ? message : "stream error",
+    true,
+  );
+}
+
 export async function* streamChat(
   fetcher: () => Promise<Response>,
   signal?: AbortSignal,
 ): AsyncGenerator<ChatStreamEvent> {
   const res = await fetcher();
   if (!res.ok || !res.body) {
-    throw new ApiError("STREAM_INTERRUPTED", `HTTP ${res.status}`);
+    throw new ApiError("STREAM_INTERRUPTED", `HTTP ${res.status}`, true);
   }
 
   const reader = res.body.getReader();
@@ -42,9 +64,26 @@ export async function* streamChat(
     // Only handle regular events; ignore reconnect-interval pings.
     if (event.type !== "event") return;
     try {
+      // SSE-level `event: error\ndata: {code, message}` (M2.6 protocol).
+      // Takes precedence over payload-level `type: error` so a future
+      // migration to event-typed errors doesn't need a dual format.
+      if (event.event === "error") {
+        let payload: { code?: unknown; message?: unknown } = {};
+        try {
+          payload = JSON.parse(event.data);
+        } catch {
+          error = new ApiError("STREAM_INTERRUPTED", "invalid error payload", true);
+          done = true;
+          return;
+        }
+        error = normalizeStreamError(payload.code, payload.message);
+        done = true;
+        return;
+      }
+
       const data = JSON.parse(event.data);
       if (data.type === "error") {
-        error = new ApiError(data.code ?? "UNKNOWN", data.message ?? "");
+        error = normalizeStreamError(data.code, data.message);
         done = true;
         return;
       }
@@ -65,11 +104,14 @@ export async function* streamChat(
         if (signal?.aborted) break;
       }
     } catch (e) {
+      // Reader failures (network drop, decode failure, etc.) are never
+      // AbortError and never an ApiError from upstream — normalize to a
+      // retryable STREAM_INTERRUPTED so the UI can offer retry.
       if (!error)
         error =
           e instanceof Error
-            ? new ApiError("STREAM_INTERRUPTED", e.message)
-            : new ApiError("STREAM_INTERRUPTED", String(e));
+            ? new ApiError("STREAM_INTERRUPTED", e.message, true)
+            : new ApiError("STREAM_INTERRUPTED", String(e), true);
     } finally {
       done = true;
     }
@@ -78,14 +120,17 @@ export async function* streamChat(
   while (!done || queue.length > 0) {
     if (signal?.aborted) {
       await reader.cancel();
-      throw new ApiError("ABORTED", "aborted by user");
+      throw new ApiError("ABORTED", "aborted by user", false);
     }
-    if (error) throw error;
+    // Drain queued events before reporting the terminal error, so any
+    // delta that arrived in the same chunk as `event: error` is still
+    // yielded to the consumer.
     if (queue.length > 0) {
       yield queue.shift()!;
-    } else {
-      await new Promise((r) => setTimeout(r, 10));
+      continue;
     }
+    if (error) throw error;
+    await new Promise((r) => setTimeout(r, 10));
   }
   if (error) throw error;
 }
