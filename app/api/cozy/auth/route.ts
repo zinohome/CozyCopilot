@@ -14,7 +14,15 @@ export async function POST(req: Request) {
     body = await req.json();
   } catch {
     return NextResponse.json(
-      { ok: false, error: { code: "VALIDATION_ERROR", message: "invalid json" } },
+      {
+        ok: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "invalid json",
+          userMessage: "请输入有效的邮箱和密码",
+          retryable: false,
+        },
+      },
       { status: 400 },
     );
   }
@@ -22,7 +30,15 @@ export async function POST(req: Request) {
   const parsed = LoginSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { ok: false, error: { code: "VALIDATION_ERROR", message: parsed.error.message } },
+      {
+        ok: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: parsed.error.message,
+          userMessage: "请输入有效的邮箱和密码",
+          retryable: false,
+        },
+      },
       { status: 400 },
     );
   }
@@ -34,12 +50,15 @@ export async function POST(req: Request) {
   });
 
   if (!upstream.ok) {
+    const isUnauthorized = upstream.status === 401;
     return NextResponse.json(
       {
         ok: false,
         error: {
-          code: upstream.status === 401 ? "UNAUTHORIZED" : "UNKNOWN",
+          code: isUnauthorized ? "UNAUTHORIZED" : "UNKNOWN",
           message: "login failed",
+          userMessage: isUnauthorized ? "邮箱或密码错误" : "登录失败，请稍后重试",
+          retryable: !isUnauthorized,
         },
       },
       { status: upstream.status },

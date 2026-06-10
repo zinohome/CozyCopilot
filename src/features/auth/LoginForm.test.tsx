@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LoginForm } from "./LoginForm";
 
@@ -28,5 +28,7 @@ describe("LoginForm", () => {
     await userEvent.click(button);
     expect(button).toBeDisabled();
     resolveSubmit();
+    // Wait for React to flush the post-resolution setSubmitting(false) update
+    await waitFor(() => expect(button).not.toBeDisabled());
   });
 });
