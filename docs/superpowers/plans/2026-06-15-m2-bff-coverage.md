@@ -136,6 +136,7 @@ export const ERROR_CODES: Record<ErrorCode, {
 - HTTP 402 → `INSUFFICIENT_BALANCE`
 - HTTP 502/503 → `PROVIDER_QUOTA_EXCEEDED` (if body says so) else `PROVIDER_UNAVAILABLE`
 - HTTP 400 with body `code: SESSION_CLOSED` → `SESSION_CLOSED`
+- HTTP 5xx (other than 502/503) → `PROVIDER_UNAVAILABLE` (not `UNKNOWN` — the spec's §7.2 table lists `UNKNOWN` as the catch-all, but `bff.ts` maps any 5xx to `PROVIDER_UNAVAILABLE`; `UNKNOWN` is reserved for ambiguous 4xx/200 status. Documented deviation; flag for spec reconciliation in M2 doc.)
 - else → `UNKNOWN`
 
 The CozyEngineV2 error body is `{ code: ErrorCode, ... }`; we trust its `code` field when present and only fall through to status-based mapping when missing.

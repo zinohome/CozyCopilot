@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "upstreamRequest": {
+    "method": "GET",
+    "pathname": "/api/v1/context",
+    "headers": {
+      "X-Cozy-API-Key": "<service-key>",
+      "Authorization": "Bearer <any-jwt>"
+    }
+  },
+  "upstreamResponse": {
+    "status": 200,
+    "headers": { "Content-Type": "application/json" },
+    "body": {
+      "short_term": [],
+      "long_term": [
+        { "id": "lt-1", "content": "user likes tea" }
+      ],
+      "profile": { "name": "Alice" },
+      "knowledge": [],
+      "errors": []
+    }
+  },
+  "expectedResponse": {
+    "short_term": [],
+    "long_term": [
+      { "id": "lt-1", "content": "user likes tea" }
+    ],
+    "profile": { "name": "Alice" },
+    "knowledge": [],
+    "errors": []
+  },
+  "errorScenarios": [
+    {
+      "name": "500 PROVIDER_UNAVAILABLE when CozyMemory is down",
+      "upstreamResponse": {
+        "status": 500,
+        "body": ""
+      },
+      "expectedError": {
+        "code": "PROVIDER_UNAVAILABLE",
+        "status": 500,
+        "retryable": true
+      }
+    }
+  ]
+}

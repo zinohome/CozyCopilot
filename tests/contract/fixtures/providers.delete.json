@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "upstreamRequest": {
+    "method": "DELETE",
+    "pathname": "/v1/users/me/providers/66666666-6666-4666-8666-666666666601",
+    "headers": { "Authorization": "Bearer <any-jwt>" }
+  },
+  "upstreamResponse": {
+    "status": 200,
+    "headers": { "Content-Type": "application/json" },
+    "body": {
+      "id": "66666666-6666-4666-8666-666666666601",
+      "deleted": true
+    }
+  },
+  "expectedResponse": {
+    "id": "66666666-6666-4666-8666-666666666601",
+    "deleted": true
+  },
+  "errorScenarios": [
+    {
+      "name": "409 PROVIDER_IN_USE when still referenced by sessions",
+      "upstreamResponse": {
+        "status": 409,
+        "body": { "code": "PROVIDER_IN_USE", "message": "referenced by 3 sessions" }
+      },
+      "expectedError": {
+        "code": "PROVIDER_IN_USE",
+        "status": 409
+      }
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "upstreamRequest": {
+    "method": "POST",
+    "pathname": "/v1/users/me/providers",
+    "headers": {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer <any-jwt>"
+    },
+    "body": {
+      "label": "OpenAI",
+      "base_url": "https://api.openai.com",
+      "api_key": "sk-xxx",
+      "model": "gpt-4o"
+    }
+  },
+  "upstreamResponse": {
+    "status": 200,
+    "headers": { "Content-Type": "application/json" },
+    "body": {
+      "id": "66666666-6666-4666-8666-666666666602",
+      "label": "OpenAI",
+      "base_url": "https://api.openai.com",
+      "model": "gpt-4o",
+      "is_default": false,
+      "created_at": "2026-06-10T10:00:00Z"
+    }
+  },
+  "expectedResponse": {
+    "id": "66666666-6666-4666-8666-666666666602",
+    "label": "OpenAI",
+    "base_url": "https://api.openai.com",
+    "model": "gpt-4o",
+    "is_default": false,
+    "created_at": "2026-06-10T10:00:00Z"
+  }
+}
