@@ -194,7 +194,7 @@ pnpm add next@^15.0.0 react@^19.0.0 react-dom@^19.0.0 \
 
 ```bash
 pnpm add -D typescript@^5.9.0 @types/node@^20.0.0 @types/react@^19.0.0 @types/react-dom@^19.0.0 \
-  tailwindcss@^4.0.0 @tailwindcss/postcss@^4.0.0 postcss@^8.4.0 autoprefixer@^10.4.0 \
+  tailwindcss@^4.0.0 @tailwindcss/postcss@^4.0.0 postcss@^8.4.0 \
   eslint@^9.0.0 eslint-config-next@^15.0.0 prettier@^3.3.0 \
   vitest@^2.0.0 @vitest/coverage-v8@^2.0.0 \
   @testing-library/react@^16.0.0 @testing-library/user-event@^14.5.0 @testing-library/jest-dom@^6.5.0 \
@@ -247,14 +247,16 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "**.cozycopilot.com" },
     ],
   },
-  // Allow embedding CozyCopilot widget inside cross-origin iframes
+  // Embed target: allow framing by any third-party site.
+  // Use CSP `frame-ancestors *` only — DO NOT set X-Frame-Options (older
+  // browsers/proxies treat SAMEORIGIN as more restrictive and will refuse to
+  // render the widget cross-origin, defeating the embed use case).
   async headers() {
     if (!isEmbed) return [];
     return [
       {
         source: "/:path*",
         headers: [
-          { key: "X-Frame-Options", value: "SAMEORIGIN" },
           { key: "Content-Security-Policy", value: "frame-ancestors *" },
         ],
       },
@@ -475,6 +477,8 @@ export default defineConfig({
   },
 });
 ```
+
+> **Compatibility note:** vitest 2.x ships Vite 5. `@vitejs/plugin-react@^6` requires Vite 8, so install **`@vitejs/plugin-react@^4`** (latest 4.x line) when running this task. v4 and v6 have the same public `react()` API for our usage.
 
 - [ ] **Step 2: Create `src/test/setup.ts`**
 
@@ -931,8 +935,8 @@ describe("LoginForm", () => {
   it("calls onSubmit with email + password", async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     render(<LoginForm onSubmit={onSubmit} />);
-    await userEvent.type(screen.getByLabelText(/email/i), "alice@test.com");
-    await userEvent.type(screen.getByLabelText(/password/i), "pw1234");
+    await userEvent.type(screen.getByLabelText(/邮箱/i), "alice@test.com");
+    await userEvent.type(screen.getByLabelText(/密码/i), "pw1234");
     await userEvent.click(screen.getByRole("button", { name: /登录/i }));
     expect(onSubmit).toHaveBeenCalledWith({
       email: "alice@test.com",
@@ -946,8 +950,8 @@ describe("LoginForm", () => {
       () => new Promise<void>((r) => (resolveSubmit = r)),
     );
     render(<LoginForm onSubmit={onSubmit} />);
-    await userEvent.type(screen.getByLabelText(/email/i), "a@b.c");
-    await userEvent.type(screen.getByLabelText(/password/i), "x");
+    await userEvent.type(screen.getByLabelText(/邮箱/i), "a@b.c");
+    await userEvent.type(screen.getByLabelText(/密码/i), "x");
     const button = screen.getByRole("button", { name: /登录/i });
     await userEvent.click(button);
     expect(button).toBeDisabled();
@@ -1310,7 +1314,8 @@ import { describe, it, expect, vi } from "vitest";
 import { streamChat } from "./chat";
 
 function sseResponse(chunks: string[]): Response {
-  const body = chunks.join("\n");
+  // SSE events are blank-line-terminated, so emit each event followed by \n\n.
+  const body = chunks.map((c) => c + "\n\n").join("");
   return new Response(body, {
     status: 200,
     headers: { "Content-Type": "text/event-stream" },
@@ -1390,7 +1395,7 @@ export class ApiError extends Error {
 - [ ] **Step 5: Implement `src/lib/api/chat.ts`**
 
 ```typescript
-import { createParser, type EventSourceMessage } from "eventsource-parser";
+import { createParser, type ParseEvent } from "eventsource-parser";
 import { ApiError } from "./errors";
 
 export interface ChatDeltaEvent {
@@ -1426,26 +1431,31 @@ export async function* streamChat(
 
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
+  const queue: ChatStreamEvent[] = [];
+  let done = false;
+  let error: ApiError | null = null;
+
+  // eventsource-parser v1 API: single onParse(ParseEvent) callback
   const parser = createParser({
-    onEvent: (event: EventSourceMessage) => {
+    onParse: (event: ParseEvent) => {
+      if (event.type !== "event") return;
       try {
         const data = JSON.parse(event.data);
         if (data.type === "error") {
-          throw new ApiError(data.code ?? "UNKNOWN", data.message ?? "");
+          error = new ApiError(data.code ?? "UNKNOWN", data.message ?? "");
+          done = true;
+          return;
         }
-        // Push event into queue via the generator's return
         queue.push(data as ChatStreamEvent);
-      } catch (e) {
-        if (e instanceof ApiError) throw e;
+      } catch {
         // malformed event: skip
       }
     },
   });
 
-  const queue: ChatStreamEvent[] = [];
-  let done = false;
-
-  // Background reader loop
+  // Background reader loop. Throwing from an async IIFE here would be
+  // unhandled, so we capture any error into `error` and let the consumer
+  // generator observe it on the next iteration.
   (async () => {
     try {
       while (!done) {
@@ -1455,6 +1465,8 @@ export async function* streamChat(
         parser.feed(chunk);
         if (signal?.aborted) break;
       }
+    } catch (e) {
+      error = new ApiError("STREAM_INTERRUPTED", (e as Error).message);
     } finally {
       done = true;
     }
@@ -1465,12 +1477,14 @@ export async function* streamChat(
       await reader.cancel();
       throw new ApiError("ABORTED", "aborted by user");
     }
+    if (error) throw error;
     if (queue.length > 0) {
       yield queue.shift()!;
     } else {
       await new Promise((r) => setTimeout(r, 10));
     }
   }
+  if (error) throw error;
 }
 ```
 
@@ -1525,8 +1539,8 @@ describe("POST /api/cozy/chat", () => {
         Authorization: "Bearer test-jwt",
       },
       body: JSON.stringify({
-        session_id: "s1",
-        personality_id: "p1",
+        session_id: "00000000-0000-0000-0000-000000000001",
+        personality_id: "00000000-0000-0000-0000-000000000002",
         message: "hi",
       }),
     });
