@@ -86,7 +86,21 @@ export default function ChatPage() {
       </div>
       <div className="border-t border-border bg-bg p-4">
         <div className="mx-auto max-w-3xl">
-          <Composer onSend={handleSend} disabled={false} />
+          <Composer
+            onSend={handleSend}
+            disabled={false}
+            sessionId="00000000-0000-0000-0000-000000000001"
+            personalityId="00000000-0000-0000-0000-000000000002"
+            onUploaded={(file) => {
+              // M4.3: surface the uploaded file URL as a markdown image so
+              // the next message can include it inline. M4.4 will replace
+              // this with a richer attachment chip.
+              const text = file.mime.startsWith("image/")
+                ? `![${file.filename}](${file.url})`
+                : `[${file.filename}](${file.url})`;
+              handleSend(text);
+            }}
+          />
         </div>
       </div>
     </main>
