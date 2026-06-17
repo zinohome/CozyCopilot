@@ -1,16 +1,32 @@
 /**
  * Tauri desktop implementation of the storage layer.
  *
- * Uses tauri-plugin-store (async); v1.0 caches reads in memory for sync
- * API compatibility with Zustand's createJSONStorage contract. Web reads
- * are synchronous; on Tauri the real Store API is async. We expose a
- * sync surface by keeping an in-memory cache and fire-and-forgetting
- * writes to the plugin once the M3.8 integration lands.
- *
- * NOTE: M3.4 ships the in-memory cache. Real plugin calls land in M3.8.
- * Until then, persisted state does not survive a Tauri app restart.
+ * Uses @tauri-apps/plugin-store (async) — the Rust side of the plugin
+ * is registered in src-tauri/src/lib.rs and the JS-side store plugin
+ * is exposed via `@tauri-apps/plugin-store`. v1.0 keeps an in-memory
+ * cache so the exposed surface can match Zustand's
+ * `createJSONStorage` contract (which expects a synchronous Storage);
+ * writes are applied to the cache immediately and the real plugin
+ * write is fired fire-and-forget. This is a v1.0 simplification —
+ * durable persistence on Tauri is best-effort within a single session.
  */
+import { LazyStore } from "@tauri-apps/plugin-store";
 
+/**
+ * Detect a real Tauri runtime. The test suite stubs
+ * `globalThis.__TAURI_INTERNALS__ = {}`, which is not enough to mark
+ * the runtime as live — we also need a real `invoke` function, which
+ * the Rust side injects at startup. When that is present, the plugin
+ * calls go through; otherwise we no-op.
+ */
+function isLiveTauri(): boolean {
+  if (typeof window === "undefined") return false;
+  const internals = (window as { __TAURI_INTERNALS__?: { invoke?: unknown } })
+    .__TAURI_INTERNALS__;
+  return Boolean(internals && typeof internals.invoke === "function");
+}
+
+const store = new LazyStore("settings.json");
 const cache = new Map<string, string>();
 
 export function getItem(key: string): string | null {
@@ -19,12 +35,15 @@ export function getItem(key: string): string | null {
 
 export function setItem(key: string, value: string): void {
   cache.set(key, value);
-  // M3.8 will add the real `Store.set()` call here as fire-and-forget
+  if (!isLiveTauri()) return;
+  // Fire-and-forget: real plugin write happens in the background.
+  void store.set(key, value).then(() => store.save());
 }
 
 export function removeItem(key: string): void {
   cache.delete(key);
-  // M3.8 will add the real `Store.delete()` call here as fire-and-forget
+  if (!isLiveTauri()) return;
+  void store.delete(key).then(() => store.save());
 }
 
 export const isAsync = false;
