@@ -5,6 +5,7 @@ import {
   unauthorizedResponse,
   validationResponse,
 } from "@/lib/api/bff";
+import { UPLOAD_ERROR_CODES } from "@/lib/api/errors";
 
 const UploadFormSchema = z.object({
   sessionId: z.string().min(1),
@@ -32,7 +33,7 @@ export async function POST(req: Request) {
     return errorResponse({
       code: "INVALID_BODY",
       message: "Expected multipart/form-data",
-      status: 400,
+      ...UPLOAD_ERROR_CODES.INVALID_BODY,
     });
   }
 
@@ -47,28 +48,28 @@ export async function POST(req: Request) {
     return errorResponse({
       code: "MISSING_FILE",
       message: "Expected a 'file' field in the multipart body",
-      status: 400,
+      ...UPLOAD_ERROR_CODES.MISSING_FILE,
     });
   }
   if (file.size === 0) {
     return errorResponse({
       code: "EMPTY_FILE",
       message: "File is empty",
-      status: 400,
+      ...UPLOAD_ERROR_CODES.EMPTY_FILE,
     });
   }
   if (file.size > MAX_FILE_SIZE) {
     return errorResponse({
       code: "FILE_TOO_LARGE",
       message: `Max ${MAX_FILE_SIZE / 1024 / 1024}MB`,
-      status: 413,
+      ...UPLOAD_ERROR_CODES.FILE_TOO_LARGE,
     });
   }
   if (!ALLOWED_MIME.test(file.type)) {
     return errorResponse({
       code: "UNSUPPORTED_MEDIA_TYPE",
       message: `MIME ${file.type} not allowed`,
-      status: 415,
+      ...UPLOAD_ERROR_CODES.UNSUPPORTED_MEDIA_TYPE,
     });
   }
 
