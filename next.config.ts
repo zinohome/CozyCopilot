@@ -1,14 +1,25 @@
 import type { NextConfig } from "next";
 
-const isEmbed = process.env.NEXT_PUBLIC_BUILD_TARGET === "embed";
+// Two static-export targets today:
+//   - embed: same Next bundle, iframe-friendly CSP
+//   - desktop: shipped to the Tauri 2.x shell as `out/`
+// Both share the same static-export config below; the only difference
+// is the CSP header (embed relaxes frame-ancestors, desktop doesn't
+// need any since Tauri renders inside a native window).
+const buildTarget = process.env.NEXT_PUBLIC_BUILD_TARGET;
+const isEmbed = buildTarget === "embed";
+const isDesktop = buildTarget === "desktop";
+const isStaticExport = isEmbed || isDesktop;
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  // Only the embed route uses static export; the rest of the app is SSR.
-  // We rely on the embed route being under (embed) which is a separate build
-  // in the future; for M1 the entire app is SSR.
-  output: isEmbed ? "export" : undefined,
+  // Static export for embed and desktop surfaces; SSR for the web app.
+  // We rely on the embed route being under (embed) which is a separate
+  // build in the future; for M1 the entire app is SSR on the web.
+  output: isStaticExport ? "export" : undefined,
   images: {
+    // Static export requires `unoptimized` (no image optimizer runtime).
+    unoptimized: isStaticExport,
     remotePatterns: [{ protocol: "https", hostname: "**.cozycopilot.com" }],
   },
   // Allow embedding CozyCopilot widget inside cross-origin iframes.
@@ -25,6 +36,9 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  // Static export writes a trailingSlash so the resulting directory works
+  // as a Tauri `frontendDist` (file:// loads) without needing rewrites.
+  trailingSlash: isStaticExport,
 };
 
 export default nextConfig;

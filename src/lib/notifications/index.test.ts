@@ -5,7 +5,18 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
  * each branch we clear the module cache with vi.resetModules(), set
  * the relevant global on `window`, then dynamically re-import the
  * module so `selectImpl()` re-runs with the new globals in place.
+ *
+ * The Capacitor storage and notification impls now import the real
+ * `@capacitor/core` / `@capacitor/preferences` /
+ * `@capacitor/local-notifications` plugins, which have a side effect
+ * of writing `window.Capacitor` on first import. That global would
+ * mask our test setup, so we mock the plugins to empty objects via
+ * `vi.mock` (hoisted by Vitest, runs before the dynamic import).
  */
+vi.mock("@capacitor/core", () => ({}));
+vi.mock("@capacitor/preferences", () => ({ Preferences: {} }));
+vi.mock("@capacitor/local-notifications", () => ({ LocalNotifications: {} }));
+
 describe("notifications/index dispatch", () => {
   beforeEach(() => {
     vi.resetModules();
