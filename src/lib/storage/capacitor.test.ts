@@ -1,13 +1,21 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { getItem, setItem, removeItem } from "./capacitor";
 
 /**
- * M3.4 ships the in-memory cache; M3.9 will add the real plugin call.
- * The tests below pin the v1.0 contract: getItem returns whatever was
- * last setItem'd via the cache, and removeItem clears it. Two separate
- * imports share the same module-scoped Map, which is what we want for
- * a singleton store.
+ * M3.9 wires up the real `@capacitor/preferences` plugin (UserDefaults
+ * on iOS, SharedPreferences on Android). The plugin's API is async;
+ * the storage abstraction exposes a sync surface backed by a
+ * module-scoped Map (see src/lib/storage/capacitor.ts for the design
+ * note). We mock the plugin here so the tests stay deterministic.
  */
+vi.mock("@capacitor/core", () => ({}));
+vi.mock("@capacitor/preferences", () => ({
+  Preferences: {
+    set: vi.fn(async () => undefined),
+    remove: vi.fn(async () => undefined),
+  },
+}));
+
 describe("storage/capacitor", () => {
   it("getItem returns the value set via setItem (in-memory cache)", () => {
     setItem("k", "v");
@@ -25,5 +33,23 @@ describe("storage/capacitor", () => {
     setItem("shared", "yes");
     const fresh = await import("./capacitor");
     expect(fresh.getItem("shared")).toBe("yes");
+  });
+
+  it("setItem fires a fire-and-forget Preferences.set call", async () => {
+    const { Preferences } = await import("@capacitor/preferences");
+    (Preferences.set as ReturnType<typeof vi.fn>).mockClear();
+    setItem("persisted", "value");
+    // Drain the microtask queue so the void Preferences.set promise resolves
+    await Promise.resolve();
+    expect(Preferences.set).toHaveBeenCalledWith({ key: "persisted", value: "value" });
+  });
+
+  it("removeItem fires a fire-and-forget Preferences.remove call", async () => {
+    const { Preferences } = await import("@capacitor/preferences");
+    (Preferences.remove as ReturnType<typeof vi.fn>).mockClear();
+    setItem("k", "v");
+    removeItem("k");
+    await Promise.resolve();
+    expect(Preferences.remove).toHaveBeenCalledWith({ key: "k" });
   });
 });

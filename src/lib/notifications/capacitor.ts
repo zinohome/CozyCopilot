@@ -1,16 +1,23 @@
 /**
  * Capacitor mobile implementation of the notification layer.
  *
- * Capacitor 7.x uses `@capacitor/local-notifications` to surface
- * OS-level notifications on iOS and Android. The package will be
- * installed in M3.9 when the mobile shells are added.
+ * Capacitor 7.x surfaces OS-level notifications on iOS and Android
+ * through `@capacitor/local-notifications`. The plugin schedule is
+ * fire-and-forget; the permission flow is async.
  *
- * NOTE: M3.3 ships the type definitions and the index.ts dispatch
- * logic. The real plugin imports land in M3.9. Until then we detect
- * the Capacitor runtime via the window.Capacitor global injected by
- * the native bridge, and return safe "default" / no-op defaults so
- * business code can ship without crashing.
+ * The runtime is detected via the `window.Capacitor` global injected
+ * by the native bridge. SSR / pure-web environments fall through to
+ * "unsupported" / no-op so the dispatcher in index.ts can call through
+ * safely regardless of the surface.
+ *
+ * `getPermission` returns "default" when the runtime is present
+ * because LocalNotifications does not expose a sync permission
+ * check; consumers should treat this as "unknown — call
+ * requestPermission() to learn". A future iteration can persist the
+ * last-seen permission in storage (see M3.4 / storage impl) and read
+ * it back synchronously.
  */
+import { LocalNotifications } from "@capacitor/local-notifications";
 
 export type NotifyOptions = {
   title: string;
@@ -36,33 +43,47 @@ declare global {
 /**
  * Returns the current notification permission state. "unsupported" on
  * SSR and when the Capacitor runtime global is absent; "default"
- * otherwise (M3.9 will report the real LocalNotifications.checkPermissions()
- * result).
+ * otherwise (LocalNotifications.checkPermissions() is async and the
+ * sync surface is the contract; v1.0 callers invoke requestPermission()
+ * to learn the real state).
  */
 export function getPermission(): CapacitorNotificationPermission {
   if (typeof window === "undefined" || !window.Capacitor) return "unsupported";
-  // M3.9 will replace this with the real `LocalNotifications.checkPermissions()` call
   return "default";
 }
 
 /**
  * Triggers the OS-level notification permission prompt via the
- * Capacitor LocalNotifications plugin. M3.9 will wire up the real
- * `LocalNotifications.requestPermissions()` call.
+ * Capacitor LocalNotifications plugin. The plugin reports the post-
+ * prompt state in `result.display`; we map it onto the abstraction's
+ * permission union.
  */
 export async function requestPermission(): Promise<CapacitorNotificationPermission> {
   if (typeof window === "undefined" || !window.Capacitor) return "unsupported";
-  // M3.9 will replace this with the real `LocalNotifications.requestPermissions()` call
+  const result = await LocalNotifications.requestPermissions();
+  if (result.display === "granted") return "granted";
+  if (result.display === "denied") return "denied";
   return "default";
 }
 
 /**
- * Schedules a local notification. M3.9 will wire up the real
- * `LocalNotifications.schedule()` call. M3.3 no-ops once the runtime
- * is detected, so the dispatcher can call through safely.
+ * Schedules a local notification via LocalNotifications.schedule. A
+ * unique numeric ID is required (we derive one from `Date.now()` when
+ * the caller did not supply one). The `schedule.at` is set 100 ms in
+ * the future to mimic an immediate display — the plugin requires a
+ * scheduled time, not a "now" sentinel.
  */
 export function notify(opts: NotifyOptions): void {
   if (typeof window === "undefined" || !window.Capacitor) return;
-  // M3.9 will replace this with the real `LocalNotifications.schedule()` call
-  void opts;
+  if (opts.id === undefined) opts.id = Date.now();
+  void LocalNotifications.schedule({
+    notifications: [
+      {
+        id: opts.id,
+        title: opts.title,
+        body: opts.body ?? "",
+        schedule: { at: new Date(Date.now() + 100) },
+      },
+    ],
+  });
 }

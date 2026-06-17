@@ -9,7 +9,23 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
  *
  * localStorage survives between tests in jsdom, so we clear it explicitly
  * in beforeEach to keep the web-impl assertions deterministic.
+ *
+ * M3.9: the Capacitor storage impl imports `@capacitor/preferences`
+ * which transitively imports `@capacitor/core` — that core module sets
+ * `window.Capacitor` as a side effect, which would otherwise mask the
+ * dispatch branches we want to test. We mock both to empty objects
+ * (hoisted by Vitest before the dynamic import) so the side effect
+ * does not fire.
  */
+vi.mock("@capacitor/core", () => ({}));
+vi.mock("@capacitor/preferences", () => ({
+  Preferences: {
+    set: vi.fn(async () => undefined),
+    remove: vi.fn(async () => undefined),
+  },
+}));
+vi.mock("@capacitor/local-notifications", () => ({ LocalNotifications: {} }));
+
 describe("storage/index dispatch", () => {
   beforeEach(() => {
     vi.resetModules();
