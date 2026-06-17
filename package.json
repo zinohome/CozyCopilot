@@ -18,7 +18,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:scripts": "node --test scripts/build-scripts.test.mjs",
+    "test:scripts": "node --test scripts/build-scripts.check.mjs",
     "test:e2e": "playwright test",
     "cap:sync": "cap sync",
     "cap:open:ios": "cap open ios",
