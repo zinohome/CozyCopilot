@@ -14,7 +14,23 @@ export interface ChatErrorEvent {
   code: string;
   message: string;
 }
-export type ChatStreamEvent = ChatDeltaEvent | ChatDoneEvent | ChatErrorEvent;
+export interface ChatToolCallEvent {
+  type: "tool_call";
+  id: string;
+  name: string;
+  arguments: unknown;
+}
+export interface ChatToolResultEvent {
+  type: "tool_result";
+  id: string;
+  result: unknown;
+}
+export type ChatStreamEvent =
+  | ChatDeltaEvent
+  | ChatDoneEvent
+  | ChatErrorEvent
+  | ChatToolCallEvent
+  | ChatToolResultEvent;
 
 export interface StreamChatRequest {
   sessionId: string;
