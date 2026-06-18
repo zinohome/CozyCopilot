@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
-import { POST } from "./route";
+import { GET, POST } from "./route";
 
 const SESSION_ID = "00000000-0000-0000-0000-000000000001";
 const PERSONALITY_ID = "00000000-0000-0000-0000-000000000002";
@@ -20,6 +20,15 @@ function makeReq(body: unknown, auth: string | null = BEARER): NextRequest {
     headers,
     body: typeof body === "string" ? body : JSON.stringify(body),
   }) as unknown as NextRequest;
+}
+
+function makeGetReq(taskId: string | null, auth: string | null = BEARER): NextRequest {
+  const url = taskId
+    ? `http://localhost/api/cozy/chat/async?taskId=${encodeURIComponent(taskId)}`
+    : "http://localhost/api/cozy/chat/async";
+  const headers: Record<string, string> = {};
+  if (auth) headers.Authorization = auth;
+  return new Request(url, { method: "GET", headers }) as unknown as NextRequest;
 }
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -135,5 +144,81 @@ describe("POST /api/cozy/chat/async", () => {
     expect(res.status).toBe(500);
     const body = await res.json();
     expect(body.error.code).toBe("PROVIDER_QUOTA_EXCEEDED");
+  });
+});
+
+describe("GET /api/cozy/chat/async", () => {
+  let originalFetch: typeof global.fetch;
+  beforeEach(() => {
+    originalFetch = global.fetch;
+  });
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  it("rejects missing Authorization header with 401 UNAUTHORIZED", async () => {
+    const res = await GET(makeGetReq("task-123", null));
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.error.code).toBe("UNAUTHORIZED");
+  });
+
+  it("rejects non-Bearer Authorization header with 401 UNAUTHORIZED", async () => {
+    const res = await GET(makeGetReq("task-123", "Basic dXNlcjpwYXNz"));
+    expect(res.status).toBe(401);
+  });
+
+  it("returns 400 with explicit code when taskId query param is missing", async () => {
+    const res = await GET(makeGetReq(null));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error.code).toBe("MISSING_TASK_ID");
+    expect(body.error.message).toMatch(/taskId/i);
+  });
+
+  it("forwards to CozyEngineV2 /v1/chat/async/:taskId and returns body on 200", async () => {
+    const upstreamBody = { task_id: "task-123", status: "completed", result: "ok" };
+    const mock = installFetchMock(200, upstreamBody);
+
+    const res = await GET(makeGetReq("task-123"));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toEqual(upstreamBody);
+
+    // Verify URL was built correctly
+    const callUrl = mock.mock.calls[0]?.[0] as string;
+    expect(callUrl).toContain("/v1/chat/async/task-123");
+  });
+
+  it("forwards the Authorization header verbatim to upstream", async () => {
+    const mock = installFetchMock(200, { status: "pending" });
+    await GET(makeGetReq("task-123"));
+    const init = mock.mock.calls[0]?.[1] as RequestInit;
+    expect((init.headers as Record<string, string>).Authorization).toBe(BEARER);
+  });
+
+  it("encodes special characters in taskId", async () => {
+    const mock = installFetchMock(200, { status: "pending" });
+    await GET(makeGetReq("task/with/slashes"));
+    const callUrl = mock.mock.calls[0]?.[0] as string;
+    expect(callUrl).toContain("task%2Fwith%2Fslashes");
+  });
+
+  it("maps upstream 404 to 404 NOT_FOUND via errorResponseFromUpstream", async () => {
+    installFetchMock(404, { code: "NOT_FOUND", message: "task expired" });
+
+    const res = await GET(makeGetReq("task-123"));
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
+  it("maps upstream 502 to 502 PROVIDER_UNAVAILABLE via status mapping", async () => {
+    installFetchMock(502, "");
+
+    const res = await GET(makeGetReq("task-123"));
+    expect(res.status).toBe(502);
+    const body = await res.json();
+    expect(body.error.code).toBe("PROVIDER_UNAVAILABLE");
   });
 });

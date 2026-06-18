@@ -49,6 +49,47 @@ export interface ErrorCodeMeta {
   showToUser: boolean;
 }
 
+/**
+ * Upload-specific BFF error codes. These flow through the BFF boundary only
+ * (returned from the `/api/cozy/upload` route). They are intentionally NOT
+ * part of the 20-code `ErrorCode` union because the client never sees them
+ * directly — the upload hook translates upstream `ApiErrorBody` envelopes
+ * into a single `ApiError("UPLOAD_FAILED", ...)`. Listed here so the BFF has
+ * a single source of truth for status mappings and user-facing messages.
+ */
+export const UPLOAD_ERROR_CODES = {
+  INVALID_BODY: {
+    status: 400,
+    userMessage: "请求格式有误",
+    retryable: false,
+    showToUser: true,
+  },
+  MISSING_FILE: {
+    status: 400,
+    userMessage: "请选择要上传的文件",
+    retryable: false,
+    showToUser: true,
+  },
+  EMPTY_FILE: {
+    status: 400,
+    userMessage: "文件为空",
+    retryable: false,
+    showToUser: true,
+  },
+  FILE_TOO_LARGE: {
+    status: 413,
+    userMessage: "文件超过 20MB 上限",
+    retryable: false,
+    showToUser: true,
+  },
+  UNSUPPORTED_MEDIA_TYPE: {
+    status: 415,
+    userMessage: "暂不支持该文件类型",
+    retryable: false,
+    showToUser: true,
+  },
+} as const satisfies Record<string, ErrorCodeMeta>;
+
 export const ERROR_CODES: Record<ErrorCode, ErrorCodeMeta> = {
   NETWORK_OFFLINE: { status: 0, userMessage: "网络连接中断", retryable: true, showToUser: true },
   TIMEOUT: { status: 0, userMessage: "请求超时，请重试", retryable: true, showToUser: true },
