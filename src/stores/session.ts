@@ -15,6 +15,16 @@ export interface Message {
 export interface SessionState {
   messages: Message[];
   streamingMessageId: string | null;
+  /**
+   * M4.6: the active session and personality. These are page-level
+   * identity (not message state), so they live in the same store so
+   * `MessageList` / `Composer` can read them without prop-drilling.
+   * `null` means "not yet selected" — the UI shows the picker empty.
+   */
+  activeSessionId: string | null;
+  activePersonalityId: string | null;
+  setActiveSession: (id: string | null) => void;
+  setActivePersonality: (id: string | null) => void;
   appendMessage: (msg: Omit<Message, "id"> & { id?: string }) => void;
   startStreaming: (id: string) => void;
   appendDelta: (id: string, delta: string) => void;
@@ -26,6 +36,11 @@ export interface SessionState {
 export const useSessionStore = create<SessionState>()((set) => ({
   messages: [],
   streamingMessageId: null,
+  activeSessionId: null,
+  activePersonalityId: null,
+
+  setActiveSession: (id) => set({ activeSessionId: id }),
+  setActivePersonality: (id) => set({ activePersonalityId: id }),
 
   appendMessage: (msg) =>
     set((s) => ({
@@ -57,5 +72,8 @@ export const useSessionStore = create<SessionState>()((set) => ({
       streamingMessageId: null,
     })),
 
-  clear: () => set({ messages: [], streamingMessageId: null }),
+  clear: () =>
+    // Only clears message state — personality/session identity persists.
+    // Use `setActiveSession(null)` to explicitly switch sessions.
+    set({ messages: [], streamingMessageId: null }),
 }));

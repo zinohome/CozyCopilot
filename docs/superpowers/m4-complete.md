@@ -21,6 +21,7 @@ polish (M6), themes (M7), and release polish (M8).
 | Files added | — | 44 | — |
 | Lines added | — | +6,084 | — |
 | Routes | 20 | 21 | **+1** (`/api/cozy/upload`) |
+| Chat-page components wired | 0 (M1/M2) | **3** (PersonalityPicker, SessionList, ToolCallViewer) | **+3** |
 
 All gates green: `pnpm typecheck` 0 errors, `pnpm lint --max-warnings 0`
 0 warnings, `pnpm test` 428/428 pass, `pnpm build:web` succeeds.
@@ -77,7 +78,9 @@ is the only browser-API path to a live progress bar.
 
 ### M4.4 — ToolCall viewer (`src/features/tools/`)
 
-Purple-strip UI for tool-call events flowing from SSE and WebSocket.
+Purple-strip UI for tool-call events flowing from SSE and WebSocket. **Wired
+into `app/(web)/chat/page.tsx`**: every SSE event from `streamChat` is fed
+to `useToolCalls`, and the resulting map is rendered below the message list.
 
 - `ToolCallViewer.tsx` — collapsible arguments/result, distinct purple accent
 - `useToolCalls()` hook — `Record<string, ToolCallData>` aggregation with
@@ -85,6 +88,8 @@ Purple-strip UI for tool-call events flowing from SSE and WebSocket.
 - **Chat stream extension:** `ChatStreamEvent` union in `src/lib/api/chat.ts`
   now includes `ChatToolCallEvent` and `ChatToolResultEvent` — these flow
   through the existing `streamChat` async generator
+- **Reset behavior:** switching sessions calls `useToolCalls.reset()` so each
+  session starts with a fresh turn graph
 
 **Test coverage:** 6 hook tests + 5 component tests = 11 cases.
 
@@ -104,6 +109,12 @@ Full UI + hook for managing custom OpenAI-compatible providers.
 **Test coverage:** 9 hook tests + 4 list tests + 4 form tests + 2 button tests = 19 cases.
 
 ### M4.6 — Personality + session management (`src/features/personalities/`, `src/features/sessions/`)
+
+- **`PersonalitiesClient`** mounted in `app/(web)/chat/page.tsx` header
+- **`SessionsClient`** mounted in `app/(web)/chat/page.tsx` left sidebar
+- **`useSessionStore`** extended with `activeSessionId`, `activePersonalityId`,
+  `setActiveSession`, `setActivePersonality`; `clear()` preserves identity
+  (only wipes message state)
 
 - **`PersonalityPicker`** — header dropdown with selectable list + inline
   "+ New" form. Model dropdown merges 4 built-in flagships
@@ -158,15 +169,17 @@ src/features/sessions/*.test.{ts,tsx}
 tests/integration/m4-flow.test.ts
 docs/superpowers/plans/2026-06-25-m4-advanced.md
 
-# Modified (5 files)
+# Modified (6 files)
 src/lib/api/chat.ts                              (ChatStreamEvent +tool_call/tool_result)
 src/lib/api/errors.ts                            (UPLOAD_ERROR_CODES)
-app/(web)/chat/page.tsx                          (wire in picker + session list)
+src/stores/session.ts                            (M4.6 active session + personality state)
+app/(web)/chat/page.tsx                          (wire picker + session list + ToolCallViewer)
 app/(web)/settings/providers/page.tsx            (M4.5 settings page)
 app/api/cozy/chat/async/route.ts + .test.ts      (M4.2 BFF GET handler + 9 tests)
 ```
 
-**Total:** 44 new files, 5 modified, **+6,084 / -18 lines**.
+**Total:** 44 new files, 6 modified, **+6,084 / -18 lines** (modified includes
+the chat-page wiring).
 
 ---
 
