@@ -10,8 +10,10 @@ import { ToolCallViewer } from "@/features/tools/ToolCallViewer";
 import { useToolCalls } from "@/features/tools/useToolCalls";
 import { PersonalitiesClient } from "@/features/personalities";
 import { SessionsClient } from "@/features/sessions";
+import { RealtimePanel } from "@/features/voice/RealtimePanel";
+import { useRealtime } from "@/features/voice/useRealtime";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export default function ChatPage() {
   const jwt = useAuthStore((s) => s.jwt);
@@ -26,6 +28,22 @@ export default function ChatPage() {
     useSessionStore();
   const { tools, ingestSSE, reset: resetTools } = useToolCalls();
   const controllerRef = useRef<AbortController | null>(null);
+  // M5.8: realtime voice-call toggle. The page owns the mount/unmount
+  // decision; the panel drives the LiveKit state machine via its own
+  // `useRealtime` instance. We call `hangup()` on close to ensure any
+  // active room is torn down — `hangup` is a no-op when no room exists.
+  const [realtimeOpen, setRealtimeOpen] = useState(false);
+  const { hangup } = useRealtime();
+
+  const handleRealtimeClose = useCallback(async () => {
+    try {
+      await hangup();
+    } catch {
+      // Hangup is best-effort on close — the panel's own instance handles
+      // its own cleanup; the page's instance is a defensive guard.
+    }
+    setRealtimeOpen(false);
+  }, [hangup]);
 
   // Auth gate: redirect to /login if no JWT
   useEffect(() => {
@@ -124,10 +142,27 @@ export default function ChatPage() {
       <div className="flex flex-1 flex-col">
         <header className="flex items-center justify-between border-b border-border bg-bg px-6 py-3">
           <h1 className="text-lg font-semibold">CozyCopilot</h1>
-          <PersonalitiesClient
-            activeId={activePersonalityId}
-            onChange={(id) => setActivePersonality(id)}
-          />
+          <div className="flex items-center gap-2">
+            <PersonalitiesClient
+              activeId={activePersonalityId}
+              onChange={(id) => setActivePersonality(id)}
+            />
+            <button
+              type="button"
+              onClick={() => setRealtimeOpen((v) => !v)}
+              disabled={!hasActive}
+              aria-label="realtime-voice"
+              aria-pressed={realtimeOpen}
+              data-testid="realtime-toggle"
+              className={
+                realtimeOpen
+                  ? "inline-flex h-10 items-center gap-2 rounded-[var(--radius)] border border-border bg-accent px-3 text-sm font-medium text-accent-fg hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:pointer-events-none disabled:opacity-50"
+                  : "inline-flex h-10 items-center gap-2 rounded-[var(--radius)] border border-border bg-bg px-3 text-sm text-fg hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:pointer-events-none disabled:opacity-50"
+              }
+            >
+              语音通话
+            </button>
+          </div>
         </header>
         <div className="flex-1 overflow-auto p-6">
           <MessageList messages={messages} />
@@ -162,6 +197,18 @@ export default function ChatPage() {
           </div>
         </div>
       </div>
+      {/* M5.8: full-screen realtime voice-call overlay. Mounts only when
+          the user has opened it AND has both an active session and a
+          selected personality AND a valid JWT. Closing the panel calls
+          `useRealtime().hangup()` defensively (no-op if no room). */}
+      {realtimeOpen && activeSessionId && activePersonalityId && jwt && (
+        <RealtimePanel
+          sessionId={activeSessionId}
+          personalityId={activePersonalityId}
+          onClose={handleRealtimeClose}
+          onFallbackToText={handleRealtimeClose}
+        />
+      )}
     </main>
   );
 }
