@@ -9,8 +9,14 @@ export interface RealtimePanelProps {
   personalityId: string;
   /** Called when the user closes the panel after an `ended` or `error` state. */
   onClose?: () => void;
-  /** Called when the user wants to fall back to text chat after an error. */
+  /**
+   * Called when the user wants to fall back to text chat after an error.
+   * M5.7: alias `onFallback` provided for consistency with the spec; both
+   * callbacks fire the same handler. Prefer `onFallbackToText` going forward.
+   */
   onFallbackToText?: () => void;
+  /** M5.7 — failure-degradation CTA. Same semantics as `onFallbackToText`. */
+  onFallback?: () => void;
 }
 
 const STATE_LABEL: Record<RealtimeState["kind"], string> = {
@@ -38,6 +44,7 @@ export function RealtimePanel({
   personalityId,
   onClose,
   onFallbackToText,
+  onFallback,
 }: RealtimePanelProps) {
   const { state, start, setMicEnabled, hangup } = useRealtime();
   const [muted, setMuted] = useState(false);
@@ -156,14 +163,17 @@ export function RealtimePanel({
 
           {isError && (
             <>
-              {onFallbackToText && state.kind === "error" && state.canFallback && (
+              {state.kind === "error" && state.canFallback && (onFallbackToText || onFallback) && (
                 <Button
                   type="button"
-                  variant="ghost"
-                  onClick={onFallbackToText}
+                  onClick={() => {
+                    if (onFallbackToText) onFallbackToText();
+                    else if (onFallback) onFallback();
+                  }}
                   data-testid="realtime-fallback"
+                  className="bg-accent text-accent-fg"
                 >
-                  切换到文字
+                  切换到文字模式
                 </Button>
               )}
               {onClose && (
