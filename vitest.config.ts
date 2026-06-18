@@ -8,6 +8,9 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
     globals: true,
+    // Exclude worktrees so concurrent M-branch work in `.claude/worktrees/`
+    // doesn't pollute the main checkout's test run.
+    exclude: ["**/node_modules/**", "**/dist/**", "**/.next/**", "**/.claude/**"],
     coverage: {
       provider: "v8",
       include: ["src/lib/**", "app/api/**"],
