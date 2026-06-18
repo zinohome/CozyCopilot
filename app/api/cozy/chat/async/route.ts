@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  errorResponse,
   errorResponseFromUpstream,
   parseJsonBody,
   unauthorizedResponse,
@@ -46,4 +47,41 @@ export async function POST(req: Request) {
 
   const data = await upstream.json();
   return Response.json({ ok: true, data });
+}
+
+/**
+ * Polling endpoint for the M4.2 useAsyncTask hook. Returns the current
+ * task status from CozyEngineV2. Used when WebSocket push is unavailable.
+ */
+export async function GET(req: Request) {
+  const auth = req.headers.get("Authorization");
+  if (!auth?.startsWith("Bearer ")) return unauthorizedResponse();
+
+  const url = new URL(req.url);
+  const taskId = url.searchParams.get("taskId");
+  if (!taskId) {
+    return errorResponse({
+      code: "MISSING_TASK_ID",
+      message: "taskId query param is required",
+      status: 400,
+    });
+  }
+
+  const upstream = await fetch(`${COZY_ENGINE_URL}/v1/chat/async/${encodeURIComponent(taskId)}`, {
+    method: "GET",
+    headers: { Authorization: auth },
+  });
+
+  if (!upstream.ok) {
+    let body: unknown = null;
+    try {
+      body = await upstream.json();
+    } catch {
+      /* non-JSON upstream error */
+    }
+    return errorResponseFromUpstream(upstream.status, body);
+  }
+
+  const data = await upstream.json();
+  return Response.json(data);
 }
