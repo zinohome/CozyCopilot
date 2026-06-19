@@ -45,6 +45,47 @@ export function ChatWidget({ config, onClose, transport }: ChatWidgetProps) {
   const [composerText, setComposerText] = useState<string>(config.prefill ?? "");
   const sessionStartedRef = useRef(false);
 
+  // M7.5: focus management. On open, focus the close button (top of the
+  // panel — predictable, screen-reader friendly). While the panel is
+  // open, trap Tab so the user can't escape into the host page behind
+  // the iframe. The EmbedClient restores focus to the bubble trigger
+  // when the panel closes (it owns the open/close state and the
+  // pre-click focus snapshot).
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const panelRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    // Move focus to the close button on mount. We deliberately do NOT
+    // focus the composer — that would steal a screen reader's context
+    // from the dialog header.
+    closeButtonRef.current?.focus();
+
+    // Focus trap: when Tab / Shift+Tab would leave the panel, wrap.
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key !== "Tab") return;
+      const root = panelRef.current;
+      if (!root) return;
+      const focusables = root.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
   // M6.4: register host → widget listeners. Each `on(...)` returns an
   // unsubscribe that we detach on unmount. The handlers below are the
   // small set the loader documents as the host API surface. The
@@ -97,8 +138,10 @@ export function ChatWidget({ config, onClose, transport }: ChatWidgetProps) {
 
   return (
     <section
+      ref={panelRef}
       role="dialog"
       aria-label="CozyCopilot chat"
+      aria-modal="true"
       data-testid="chat-widget"
       className="fixed bottom-4 right-4 z-50 flex h-[560px] w-[380px] flex-col overflow-hidden rounded-[var(--radius)] border border-border bg-bg text-fg shadow-[var(--shadow-pop)]"
     >
@@ -110,6 +153,7 @@ export function ChatWidget({ config, onClose, transport }: ChatWidgetProps) {
           </span>
         </div>
         <button
+          ref={closeButtonRef}
           type="button"
           onClick={onClose}
           aria-label="close-chat"

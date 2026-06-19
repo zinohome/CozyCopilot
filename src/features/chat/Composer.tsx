@@ -92,14 +92,19 @@ export function Composer({
       <div className="flex items-end gap-2 rounded-[var(--radius)] border border-border bg-bg p-2 shadow-[var(--shadow-soft)]">
         <textarea
           role="textbox"
+          aria-label="Message"
+          aria-describedby="composer-help"
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
           disabled={disabled || sending}
           placeholder="说点什么..."
           rows={1}
-          className="flex-1 resize-none bg-transparent px-2 py-1.5 text-sm focus-visible:outline-none disabled:opacity-50"
+          className="flex-1 resize-none bg-transparent px-2 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-50"
         />
+        <span id="composer-help" className="sr-only">
+          Press Enter to send, Shift+Enter for newline
+        </span>
         {voiceEnabled && (
           <VoiceButton sessionId={sessionId ?? null} personalityId={personalityId ?? null} />
         )}
@@ -114,7 +119,11 @@ export function Composer({
             附件
           </Button>
         )}
-        <Button onClick={handleSend} disabled={disabled || sending || !text.trim()}>
+        <Button
+          onClick={handleSend}
+          disabled={disabled || sending || !text.trim()}
+          aria-label="Send message"
+        >
           发送
         </Button>
       </div>

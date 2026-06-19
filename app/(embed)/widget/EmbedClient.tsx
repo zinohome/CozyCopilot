@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChatWidget } from "./ChatWidget";
 import { FloatingBubble } from "./FloatingBubble";
 import { useEmbedConfig } from "@/features/embed/useEmbedConfig";
@@ -35,6 +35,40 @@ export function EmbedClient() {
   const transport = useEmbedTransport({ parentOrigin: config.parentOrigin });
   const auth = useEmbedAuth(config.key);
 
+  // M7.5: focus management for open/close. We capture the pre-open
+  // active element and restore it on close. The captured node may
+  // be detached by the time we restore (e.g. the bubble unmounts
+  // when the panel opens), so the restore logic falls back to
+  // looking up the bubble by its data-testid if the snapshot is gone
+  // or unfocusable.
+  const lastFocusedRef = useRef<HTMLElement | null>(null);
+
+  const open = () => {
+    lastFocusedRef.current = document.activeElement as HTMLElement | null;
+    setIsOpen(true);
+  };
+
+  const close = () => {
+    setIsOpen(false);
+    // Defer restoration to the next tick so React has time to remount
+    // the bubble. Otherwise we'd try to focus a not-yet-mounted node.
+    queueMicrotask(() => {
+      const snap = lastFocusedRef.current;
+      // If the snapshot is still in the document, focus it. Otherwise
+      // (e.g. the bubble was captured pre-open and has been remounted
+      // as a fresh node), look up the bubble by data-testid — the
+      // EmbedClient always knows that's the trigger.
+      if (snap && document.body.contains(snap) && typeof snap.focus === "function") {
+        snap.focus();
+        return;
+      }
+      const bubble = document.querySelector<HTMLElement>(
+        '[data-testid="floating-bubble"]',
+      );
+      bubble?.focus();
+    });
+  };
+
   // M6.4: tell the host we're ready, but only AFTER the BFF has
   // accepted the key. The host gates `window.CozyCopilot.send(...)`
   // on `cozy:ready` so a premature emit would silently drop messages.
@@ -53,12 +87,8 @@ export function EmbedClient() {
   }, [config.theme]);
 
   return isOpen ? (
-    <ChatWidget
-      config={config}
-      onClose={() => setIsOpen(false)}
-      transport={transport}
-    />
+    <ChatWidget config={config} onClose={close} transport={transport} />
   ) : (
-    <FloatingBubble onClick={() => setIsOpen(true)} />
+    <FloatingBubble onClick={open} />
   );
 }

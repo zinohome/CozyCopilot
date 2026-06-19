@@ -30,6 +30,8 @@ export function ThemePicker(): React.ReactElement {
   const setTheme = useThemeStore((s) => s.setTheme);
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const firstSwatchRef = useRef<HTMLButtonElement | null>(null);
 
   // Outside click closes the popover. jsdom doesn't dispatch the
   // pointerdown reliably, so we use mousedown which fires on the
@@ -43,7 +45,12 @@ export function ThemePicker(): React.ReactElement {
       setOpen(false);
     }
     function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") {
+        setOpen(false);
+        // Restore focus to the trigger so keyboard users land somewhere
+        // sensible after dismissing the popover.
+        triggerRef.current?.focus();
+      }
     }
     document.addEventListener("mousedown", handleMouseDown);
     document.addEventListener("keydown", handleKey);
@@ -53,12 +60,22 @@ export function ThemePicker(): React.ReactElement {
     };
   }, [open]);
 
+  // M7.5: when the popover opens, move focus to the first swatch so
+  // keyboard users can arrow/tab through the presets without first
+  // tabbing past the trigger they just activated.
+  useEffect(() => {
+    if (open) {
+      firstSwatchRef.current?.focus();
+    }
+  }, [open]);
+
   const currentSwatch = `rgb(${THEME_PRESETS[theme].light.accent})`;
   const currentLabel = THEME_LABELS[theme];
 
   return (
     <div ref={containerRef} className="relative inline-block">
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="listbox"
@@ -90,13 +107,14 @@ export function ThemePicker(): React.ReactElement {
             "absolute left-0 top-12 z-20 min-w-[12rem] rounded-[var(--radius)] border border-border bg-bg p-2 shadow-[var(--shadow-pop)]",
           )}
         >
-          {THEME_NAMES.map((name) => {
+          {THEME_NAMES.map((name, i) => {
             const swatch = `rgb(${THEME_PRESETS[name].light.accent})`;
             const label = THEME_LABELS[name];
             const selected = name === theme;
             return (
               <button
                 key={name}
+                ref={i === 0 ? firstSwatchRef : undefined}
                 type="button"
                 role="option"
                 aria-current={selected}
@@ -106,6 +124,10 @@ export function ThemePicker(): React.ReactElement {
                 onClick={() => {
                   setTheme(name);
                   setOpen(false);
+                  // After a selection, return focus to the trigger so the
+                  // next Enter / Space opens the popover again from a
+                  // predictable spot.
+                  triggerRef.current?.focus();
                 }}
                 className={cn(
                   "flex w-full items-center gap-3 rounded-[var(--radius-sm)] px-2 py-2 text-left text-sm text-fg transition-colors hover:bg-muted",
