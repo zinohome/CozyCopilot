@@ -109,4 +109,49 @@ describe("EmbedClient", () => {
     expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
     expect(screen.queryByTestId("session-list")).not.toBeInTheDocument();
   });
+
+  // M6.6: theme CSS variable overrides. The widget sets the six
+  // CSS variables on documentElement based on `?theme=`. This
+  // pins the contract end-to-end (config → DOM effect).
+
+  it("applies the calm-blue theme variables when ?theme=calm-blue", async () => {
+    // Clear any inline overrides left by an earlier test.
+    document.documentElement.removeAttribute("style");
+
+    setSearch("?theme=calm-blue");
+    render(<EmbedClient />);
+
+    // Wait for the useEffect to run. The apply happens synchronously
+    // in the effect, but React 19 batches — flush with a microtask.
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(document.documentElement.style.getPropertyValue("--color-accent")).toBe(
+      "59 130 246",
+    );
+    expect(document.documentElement.style.getPropertyValue("--color-muted")).toBe(
+      "239 246 255",
+    );
+  });
+
+  it("removes the inline CSS variables on unmount", async () => {
+    document.documentElement.removeAttribute("style");
+
+    setSearch("?theme=calm-blue");
+    const { unmount } = render(<EmbedClient />);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(document.documentElement.style.getPropertyValue("--color-accent")).toBe(
+      "59 130 246",
+    );
+
+    unmount();
+
+    expect(document.documentElement.style.getPropertyValue("--color-accent")).toBe("");
+    expect(document.documentElement.style.getPropertyValue("--color-muted")).toBe("");
+  });
 });

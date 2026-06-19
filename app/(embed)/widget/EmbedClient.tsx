@@ -6,6 +6,7 @@ import { FloatingBubble } from "./FloatingBubble";
 import { useEmbedConfig } from "@/features/embed/useEmbedConfig";
 import { useEmbedTransport } from "@/features/embed/useEmbedTransport";
 import { useEmbedAuth } from "@/features/embed/useEmbedAuth";
+import { applyTheme, resolveTheme } from "@/features/embed/themes";
 
 /**
  * M6.2 + M6.4: top-level wiring for the embed widget. Holds the
@@ -41,6 +42,15 @@ export function EmbedClient() {
     if (auth.status !== "authenticated") return;
     transport.emit({ type: "cozy:ready", version: "0.1.0" });
   }, [auth.status, transport]);
+
+  // M6.6: apply the theme preset to the document root. We set the
+  // CSS variables on `documentElement` (not a scoped element) because
+  // Tailwind utility classes like `bg-accent` resolve to `var(--color-accent)`
+  // at the root. Cleanup removes the inline overrides so a remount
+  // starts from a clean state.
+  useEffect(() => {
+    return applyTheme(resolveTheme(config.theme), document.documentElement);
+  }, [config.theme]);
 
   return isOpen ? (
     <ChatWidget
