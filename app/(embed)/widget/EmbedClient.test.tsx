@@ -76,4 +76,37 @@ describe("EmbedClient", () => {
       expect(screen.queryByTestId("chat-widget")).not.toBeInTheDocument();
     }
   });
+
+  // M6.5: the embed widget is always single-conversation. The
+  // `?hideHistory=...` flag is read by `useEmbedConfig` (for
+  // forward-compatibility with a future "embed-full" variant) but
+  // the v1 widget never renders a history view. These tests pin
+  // that contract.
+  it.each([
+    ["unset", ""],
+    ["hideHistory=0", "?hideHistory=0"],
+    ["hideHistory=1", "?hideHistory=1"],
+    ["hideHistory=true", "?hideHistory=true"],
+  ])("does not render a session list (hideHistory=%s)", async (_label, search) => {
+    setSearch(search);
+    render(<EmbedClient />);
+    await userEvent.click(screen.getByTestId("floating-bubble"));
+
+    // The widget shows messages, not a session list. There is no
+    // sidebar; there is no history button; there is no nav.
+    expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("session-list")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("session-history")).not.toBeInTheDocument();
+  });
+
+  it("does not render any history UI even when hideHistory is explicitly false", async () => {
+    // Same as above, but explicit `hideHistory=false` — makes the
+    // "the flag is a no-op in v1" contract obvious in the test list.
+    setSearch("?hideHistory=false");
+    render(<EmbedClient />);
+    await userEvent.click(screen.getByTestId("floating-bubble"));
+
+    expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("session-list")).not.toBeInTheDocument();
+  });
 });

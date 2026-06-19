@@ -22,6 +22,11 @@ import { useEmbedAuth } from "@/features/embed/useEmbedAuth";
  * Sits between the static export page and the actual UI. Renders
  * nothing on the SSR pass (`useEmbedConfig` is SSR-safe) so the
  * static export doesn't ship a flash of the bubble during hydration.
+ *
+ * M6.5: this widget is always single-conversation. A future variant
+ * that supports history should be a separate page (e.g. widget-full)
+ * gated on a different query string, NOT a config flag on this widget.
+ * The `config.hideHistory` field is read but ignored here.
  */
 export function EmbedClient() {
   const config = useEmbedConfig();

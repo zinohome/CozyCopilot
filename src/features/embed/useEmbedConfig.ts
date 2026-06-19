@@ -22,9 +22,16 @@ export interface EmbedConfig {
   /** Initial message to send as soon as the widget is ready. */
   prefill: string | null;
   /**
-   * Hide the session list (just show the active conversation). For M6.2
-   * the embed widget never renders a sidebar regardless, but we read the
-   * flag so the M6.4 transport can honor it when surfacing history APIs.
+   * Hide the session list (just show the active conversation).
+   *
+   * In the v1 embed widget, the widget is **always** single-conversation
+   * (no sidebar, no session list, no history view). The session and
+   * personality are fixed by the query string and the user cannot
+   * switch. This field exists for forward-compatibility — a future
+   * "embed-full" variant that DOES show history will gate it on this
+   * flag. The v1 widget ignores the value.
+   *
+   * See `.claude/M6.5-brief.md` for the rationale.
    */
   hideHistory: boolean;
   /** Parent origin for postMessage allowlist (M6.4). */
