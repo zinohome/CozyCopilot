@@ -17,8 +17,14 @@ app/
 ├── (web)/         — full SSR pages (chat, login, etc.)
 ├── (embed)/widget — iframe-embeddable widget
 ├── api/cozy/**    — BFF routes (dynamic; cannot be statically exported)
+├── api/ws/chat    — WebSocket proxy (dynamic; cannot be statically exported)
 └── layout.tsx, page.tsx
 ```
+
+The static build script (`scripts/build-static.mjs`) renames the
+whole `app/api` directory to `app/_api_disabled` for the duration
+of the build (see "The static export problem" below), so neither
+the BFF nor the WebSocket proxy end up in the static `out/`.
 
 The 4-surface build matrix is wired up in `package.json` scripts.
 Each `build:<surface>` script delegates to a small Node.js wrapper
@@ -27,62 +33,74 @@ in one place.
 
 ---
 
-## Build matrix status (M3.10)
+## Build matrix status (M6.1)
 
 | Script | Surface | Status today | Prerequisite |
 |---|---|---|---|
 | `pnpm build:web` | web (SSR + BFF) | **WORKS** | none |
-| `pnpm build:web:static` | static bundle (raw) | **FAILS — see below** | M6 refactor |
-| `pnpm build:embed` | embed widget | **FAILS — see below** | M6 refactor |
-| `pnpm build:desktop` | Tauri desktop | **FAILS — see below** | M6 refactor + Rust toolchain |
-| `pnpm build:mobile` | Capacitor mobile | **FAILS — see below** | M6 refactor + Xcode / Android SDK |
+| `pnpm build:web:static` | static bundle (raw) | **WORKS** (M6.1) | none |
+| `pnpm build:embed` | embed widget | **WORKS** (M6.1) | none |
+| `pnpm build:desktop` | Tauri desktop | step 1 **WORKS** (M6.1); step 2 needs Rust | Rust toolchain |
+| `pnpm build:mobile` | Capacitor mobile | step 1 **WORKS** (M6.1); step 2 needs Xcode / Android SDK | Xcode / Android Studio |
 
-> Only `pnpm build:web` runs end-to-end today. The other three surface
-> scripts fail fast with a clear, documented error so CI does not
-> silently waste minutes on a known-broken build.
+> As of M6.1, every static surface produces a valid `out/` bundle.
+> The Tauri and Capacitor chains still need their respective
+> native toolchains to produce the signed binary — those steps
+> are unchanged from M3.10.
 
 ---
 
-## The static export problem (and the M6 fix)
+## The static export problem (and the M6.1 fix)
 
 `pnpm build:web:static` and `pnpm build:embed` both set
 `NEXT_PUBLIC_BUILD_TARGET` to switch `next.config.ts` into
 `output: 'export'` mode (also `images.unoptimized: true` and
 `trailingSlash: true`).
 
-The static export then fails on the BFF routes under `app/api/cozy/`.
-There are 18 dynamic route handlers (chat streaming, voice tokens,
-providers, sessions, personalities, memory, auth, the WebSocket
-handshake, …) that use `cookies()`, `headers()`, JWT verification,
-and other request-time APIs. Next.js 15's `output: 'export'` mode
-cannot pre-render dynamic route handlers, and the build aborts with:
+The static export used to fail on the dynamic BFF routes under
+`app/api/**` (the cozy BFF at `app/api/cozy/**` uses `cookies()`,
+`headers()`, JWT verification, etc.; the WebSocket proxy at
+`app/api/ws/chat/route.ts` uses `force-dynamic`). The build aborted
+with errors like:
 
 ```
 export const dynamic = "force-static"/export const revalidate not
 configured on route "/api/cozy/providers" with "output: export"
+
+export const dynamic = "force-dynamic" on page "/api/ws/chat"
+cannot be used with "output: export"
 ```
 
 The embed widget, Tauri shell, and Capacitor shell do not need an
 in-app BFF — they talk to a remote CozyEngineV2 server directly via
-`NEXT_PUBLIC_API_BASE_URL`. So the static surfaces should ship only
-the page/component tree, not the BFF.
+`NEXT_PUBLIC_API_BASE_URL`. So the static surfaces ship only the
+page/component tree, not the BFF.
 
-**M6 plan** (tracked separately; not in M3 scope):
+**M6.1 fix (in-tree, no project split):**
 
-1. Split `app/` into a `(client)` route group containing only the
-   page/component tree, and a separate `(server)` route group for
-   `app/api/`. Both stay in the same repo for now.
-2. Add a `next.config.client.ts` that uses `pageExtensions` to
-   exclude `route.ts` from the static-export build, OR use a
-   workspace split (`apps/web`, `apps/embed`) so the BFF is not in
-   the embed app's tree at all.
-3. Update `scripts/build-static.mjs` to call
-   `next build -c next.config.client.ts` (or equivalent) so the
-   static surfaces produce a valid `out/` directory.
+The static build script (`scripts/build-static.mjs`) renames the
+whole `app/api` directory to `app/_api_disabled` for the duration
+of the build, so the App Router finds zero API routes and the
+static pre-render pass succeeds. The directory is renamed back in
+a `try/finally` block, so the SSR web build is unaffected (it
+never invokes the static script) and a crashed build never leaves
+the BFF missing.
 
-Until that lands, M3.10 ships the wrapper scripts that fail fast
-with a clear, actionable error message instead of letting `next
-build` spew the cryptic export error.
+Why a directory rename (and not webpack alias or route group):
+
+- Webpack's `NormalModuleReplacementPlugin` only matches `import`
+  statements. The App Router discovers routes by walking the
+  filesystem, not via webpack, so the plugin can't hide routes
+  from the router.
+- Route groups (`(server)`) don't help — Next.js still scans all
+  `app/api/**` regardless of group prefix.
+- The supported-by-construction approach is the build-time
+  directory rename. Documented in the script's header comment.
+
+Earlier versions of this document planned a two-config or
+multi-zone split. The directory-rename approach is smaller and
+keeps a single `app/` tree, so the M6.2+ widget UI work and the
+M3–M5 page/component work can proceed without coordination.
 
 ---
 
@@ -106,24 +124,26 @@ pnpm start
 The BFF lives at `https://<host>/api/cozy/...` and is served by the
 same Node process.
 
-### Embed widget — blocked on M6
+### Embed widget — works (M6.1)
 
 ```bash
 pnpm build:embed
-# exits 1 with: see BUILD.md "The static export problem"
 ```
 
-Once the M6 fix lands, this script will produce `out/` containing
-the widget shell with a permissive `frame-ancestors *` CSP header
-(set automatically when `NEXT_PUBLIC_BUILD_TARGET=embed`).
+Produces `out/` containing the widget shell (`out/widget/index.html`)
+plus the other static pages, with a permissive `frame-ancestors *`
+CSP header (set automatically when `NEXT_PUBLIC_BUILD_TARGET=embed`).
+The `out/api/**` directory is intentionally absent — the BFF is
+excluded by the build-time directory rename.
 
-### Desktop (Tauri 2.x) — blocked on M6 + needs Rust
+### Desktop (Tauri 2.x) — works for the static step (M6.1); needs Rust
 
 ```bash
 # 1. Install Rust: https://rustup.rs
 # 2. From the repo root:
 pnpm build:desktop
-# exits 1 at step 1 (static build) until the M6 fix lands.
+# step 1 (static build) succeeds in M6.1
+# step 2 (cargo tauri build) needs the Rust toolchain
 ```
 
 Tauri's `beforeBuildCommand` in `src-tauri/tauri.conf.json` is wired
@@ -146,13 +166,14 @@ Native bundle outputs land in `src-tauri/target/release/bundle/`:
 - Windows: `.msi` and `.exe`
 - Linux: `.deb` and `.AppImage`
 
-### Mobile (Capacitor 7.x) — blocked on M6 + needs Xcode / Android Studio
+### Mobile (Capacitor 7.x) — works for the static step (M6.1); needs Xcode / Android Studio
 
 ```bash
 # 1. Install Xcode (iOS) and / or Android Studio (Android)
 # 2. From the repo root:
 pnpm build:mobile
-# exits 1 at step 1 (static build) until the M6 fix lands.
+# step 1 (static build) succeeds in M6.1
+# step 2 (npx cap sync) needs Xcode / Android Studio
 ```
 
 Capacitor's `webDir: "out"` in `capacitor.config.ts` points at the
@@ -180,10 +201,12 @@ Each `scripts/build-*.mjs` is intentionally short and prints a clear
 status line per step. They propagate child exit codes so a failure
 short-circuits the chain. Specifically:
 
-- `scripts/build-static.mjs` — currently fails fast with the
-  documented M6 error. Once M6 lands, it will call
+- `scripts/build-static.mjs` — performs the build-time
+  `app/api` → `app/_api_disabled` rename, runs
   `npx next build` with `NEXT_PUBLIC_BUILD_TARGET=desktop` (or
-  `embed` if `--embed` is passed).
+  `embed` if `--embed` is passed), then renames the API tree
+  back. Restoration is in a `try/finally` block, so a build
+  crash never leaves the BFF missing.
 - `scripts/build-embed.mjs` — calls `build-static.mjs --embed`.
 - `scripts/build-desktop.mjs` — calls `build-static.mjs`, then
   `cargo tauri build` (or `pnpm exec tauri build` if `cargo` is
@@ -201,20 +224,29 @@ steps:
   - run: pnpm build:${{ matrix.surface }}
 ```
 
-…and each job will either succeed (`web`) or fail with a precise
-explanation (the rest), without the cryptic Next.js export error.
+…`web` and `web:static` and `embed` succeed unconditionally. The
+`desktop` and `mobile` jobs succeed once the relevant native
+toolchain (Rust / Xcode / Android Studio) is on the runner. The
+script propagates the right exit code at every step.
 
 ---
 
-## M3.10 deliverable
+## M6.1 deliverable
 
-- `package.json` scripts delegate to `scripts/build-*.mjs` wrappers
-- `scripts/build-static.mjs` documents the M6 blocker and exits 1
-- `scripts/build-embed.mjs`, `scripts/build-desktop.mjs`,
-  `scripts/build-mobile.mjs` chain through `build-static.mjs`
-- This file (`BUILD.md`) at the repo root
-- 313 existing unit tests still pass
-- `pnpm typecheck` and `pnpm lint` are clean
+- `scripts/build-static.mjs` now performs the real `next build`
+  with a build-time BFF rename (no project split, no config split)
+- `pnpm build:web` still produces 24 SSR routes
+- `pnpm build:web:static` produces `out/` (was a fail-fast)
+- `pnpm build:embed` produces `out/` with `widget/index.html`
+  (was a fail-fast)
+- `pnpm build:desktop` step 1 succeeds; step 2 (`cargo tauri
+  build`) still needs the Rust toolchain
+- `pnpm build:mobile` step 1 succeeds; step 2 (`npx cap sync`)
+  still needs Xcode / Android Studio
+- `out/api/**` is intentionally absent from every static surface
+- 506 tests pass (496 baseline + 10 new in
+  `scripts/build-static.test.mjs`)
+- `pnpm typecheck` and `pnpm lint --max-warnings 0` are clean
 
-The M6 embed/BFF refactor is the actual fix; M3.10 ships the
-honest wrapper.
+M6.2+ ships the embed widget UI, loader.js, and the postMessage
+bridge — those are independent of the build script.
