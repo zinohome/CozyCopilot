@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>CozyCopilot embed smoke test</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; padding: 2rem; max-width: 720px; margin: 0 auto; }
+    h1 { color: #c25a1c; }
+    button { margin-right: 0.5rem; padding: 0.5rem 1rem; font-size: 1rem; cursor: pointer; }
+    #log { border: 1px solid #ddd; padding: 0.75rem; min-height: 6rem; max-height: 16rem; overflow: auto; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.875rem; background: #fafafa; }
+    #log p { margin: 0 0 0.25rem 0; }
+  </style>
+</head>
+<body>
+  <h1>CozyCopilot embed smoke test</h1>
+
+  <p>
+    <button id="open">Open chat</button>
+    <button id="close">Close</button>
+    <button id="clear">Clear log</button>
+  </p>
+
+  <h2>Received events</h2>
+  <div id="log"><p><em>Listening for <code>cozy:*</code> messages from the iframe…</em></p></div>
+
+  <p>
+    <small>
+      The iframe points at <code>../widget/</code>. In dev mode (no static
+      build has been produced) the request will 404 — that's expected; the
+      loader still wires up <code>window.CozyCopilot</code> and the
+      inbound postMessage listener regardless of whether the widget itself
+      is mounted.
+    </small>
+  </p>
+
+  <!-- The loader reads `data-*` from this very <script> tag at parse-time,
+       builds the iframe URL, and exposes `window.CozyCopilot`. -->
+  <script
+    src="./loader.js"
+    data-key="ck_demo1234567890abcdef1234567890ab"
+    data-personality="00000000-0000-0000-0000-000000000001"
+    data-theme="cozy-orange"
+  ></script>
+
+  <script>
+    // Wire up the controls.
+    document.getElementById('open').addEventListener('click', function () {
+      window.CozyCopilot.open();
+    });
+    document.getElementById('close').addEventListener('click', function () {
+      window.CozyCopilot.close();
+    });
+    document.getElementById('clear').addEventListener('click', function () {
+      var log = document.getElementById('log');
+      log.innerHTML = '';
+    });
+
+    // Log every cozy:* event the iframe sends. Try a few common ones;
+    // unknown types are still relayed by the loader.
+    var logEl = document.getElementById('log');
+    function record(msg) {
+      var p = document.createElement('p');
+      p.textContent = '[' + new Date().toISOString() + '] ' + JSON.stringify(msg);
+      logEl.appendChild(p);
+    }
+    window.CozyCopilot.on('cozy:ready', record);
+    window.CozyCopilot.on('cozy:session_started', record);
+    window.CozyCopilot.on('cozy:tool_call', record);
+    window.CozyCopilot.on('cozy:tool_result', record);
+    window.CozyCopilot.on('cozy:voice_started', record);
+    window.CozyCopilot.on('cozy:voice_ended', record);
+    window.CozyCopilot.on('cozy:error', record);
+  </script>
+</body>
+</html>
