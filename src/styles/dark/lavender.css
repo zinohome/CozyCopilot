@@ -1,0 +1,15 @@
+/* Lavender — dark mode.
+ *
+ * Deep violet-tinted surface with violet-400 accent (#A78BFA).
+ * Source of truth: src/styles/themes.data.ts
+ */
+:root[data-theme="lavender"][data-mode="dark"] {
+  --color-bg: 20 15 30;
+  --color-fg: 237 233 254;
+  --color-muted: 46 16 101;
+  --color-muted-fg: 196 181 253;
+  --color-border: 76 29 149;
+  --color-accent: 167 139 250;
+  --color-accent-fg: 20 15 30;
+  --color-accent-hover: 139 92 246;
+}

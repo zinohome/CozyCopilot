@@ -1,0 +1,15 @@
+/* Lavender — light mode.
+ *
+ * Violet-500 accent (#8B5CF6) on a faintly violet-tinted surface.
+ * Source of truth: src/styles/themes.data.ts
+ */
+:root[data-theme="lavender"] {
+  --color-bg: 252 250 255;
+  --color-fg: 40 30 50;
+  --color-muted: 237 233 254;
+  --color-muted-fg: 91 33 182;
+  --color-border: 221 214 254;
+  --color-accent: 139 92 246;
+  --color-accent-fg: 255 255 255;
+  --color-accent-hover: 124 58 237;
+}
