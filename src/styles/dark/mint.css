@@ -1,0 +1,15 @@
+/* Mint — dark mode.
+ *
+ * Deep green-tinted surface with emerald-400 accent (#34D399).
+ * Source of truth: src/styles/themes.data.ts
+ */
+:root[data-theme="mint"][data-mode="dark"] {
+  --color-bg: 5 25 20;
+  --color-fg: 220 252 231;
+  --color-muted: 6 78 59;
+  --color-muted-fg: 134 239 172;
+  --color-border: 6 95 70;
+  --color-accent: 52 211 153;
+  --color-accent-fg: 5 25 20;
+  --color-accent-hover: 16 185 129;
+}

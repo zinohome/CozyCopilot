@@ -69,7 +69,7 @@ export function SessionList({ activeId, onSelect }: SessionListProps) {
         <button
           type="button"
           onClick={() => void refresh()}
-          className="rounded border border-red-300 px-2 py-0.5 text-xs text-red-700 hover:bg-red-100"
+          className="rounded border border-red-300 px-2 py-0.5 text-xs text-red-700 hover:bg-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           重试
         </button>
@@ -82,7 +82,8 @@ export function SessionList({ activeId, onSelect }: SessionListProps) {
       <button
         type="button"
         onClick={handleCreate}
-        className="rounded-[var(--radius)] bg-accent px-3 py-2 text-sm font-medium text-accent-fg hover:bg-accent-hover"
+        aria-label="Start new conversation"
+        className="rounded-[var(--radius)] bg-accent px-3 py-2 text-sm font-medium text-accent-fg hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         data-testid="session-new"
       >
         + 新建会话
@@ -108,7 +109,9 @@ export function SessionList({ activeId, onSelect }: SessionListProps) {
                 <button
                   type="button"
                   onClick={() => onSelect(s.id)}
-                  className="flex flex-1 flex-col items-start gap-0.5 text-left"
+                  aria-current={s.id === activeId ? "page" : undefined}
+                  aria-label={`Open session: ${s.title ?? "未命名会话"}`}
+                  className="flex flex-1 flex-col items-start gap-0.5 rounded text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                   data-testid={`session-select-${s.id}`}
                 >
                   {isEditing ? (
@@ -132,11 +135,11 @@ export function SessionList({ activeId, onSelect }: SessionListProps) {
                 </button>
 
                 {!isEditing && (
-                  <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                  <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
                     <button
                       type="button"
                       onClick={() => handleStartRename(s)}
-                      className="rounded px-1.5 py-0.5 text-xs text-muted-fg hover:bg-bg hover:text-fg"
+                      className="rounded px-1.5 py-0.5 text-xs text-muted-fg hover:bg-bg hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                       aria-label={`重命名 ${s.title ?? s.id}`}
                       data-testid={`session-rename-${s.id}`}
                     >
@@ -145,7 +148,7 @@ export function SessionList({ activeId, onSelect }: SessionListProps) {
                     <button
                       type="button"
                       onClick={() => handleDelete(s)}
-                      className="rounded px-1.5 py-0.5 text-xs text-red-600 hover:bg-red-50"
+                      className="rounded px-1.5 py-0.5 text-xs text-red-600 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                       aria-label={`删除 ${s.title ?? s.id}`}
                       data-testid={`session-delete-${s.id}`}
                     >

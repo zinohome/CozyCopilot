@@ -34,6 +34,8 @@ export function FloatingBubble({ onClick, children, ariaLabel = "open-chat" }: F
       type="button"
       onClick={onClick}
       aria-label={ariaLabel}
+      aria-haspopup="dialog"
+      aria-expanded="false"
       data-testid="floating-bubble"
       className="fixed bottom-4 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-2xl text-accent-fg shadow-[var(--shadow-pop)] transition-transform hover:scale-105 hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
     >

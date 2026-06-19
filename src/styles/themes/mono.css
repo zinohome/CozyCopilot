@@ -1,0 +1,15 @@
+/* Mono — light mode.
+ *
+ * Pure grayscale — for users who prefer chrome-free chrome.
+ * Source of truth: src/styles/themes.data.ts
+ */
+:root[data-theme="mono"] {
+  --color-bg: 250 250 250;
+  --color-fg: 23 23 23;
+  --color-muted: 245 245 245;
+  --color-muted-fg: 82 82 82;
+  --color-border: 229 229 229;
+  --color-accent: 23 23 23;
+  --color-accent-fg: 255 255 255;
+  --color-accent-hover: 64 64 64;
+}

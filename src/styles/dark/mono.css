@@ -1,0 +1,15 @@
+/* Mono — dark mode.
+ *
+ * Pure grayscale dark surface. Accent flips to near-white for contrast.
+ * Source of truth: src/styles/themes.data.ts
+ */
+:root[data-theme="mono"][data-mode="dark"] {
+  --color-bg: 23 23 23;
+  --color-fg: 250 250 250;
+  --color-muted: 38 38 38;
+  --color-muted-fg: 163 163 163;
+  --color-border: 64 64 64;
+  --color-accent: 250 250 250;
+  --color-accent-fg: 23 23 23;
+  --color-accent-hover: 212 212 212;
+}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { THEME_NAMES, type ThemeName } from "../../styles/themes.data";
 
 /**
  * M6.2: query-string configuration the host page passes to the embed
@@ -14,11 +15,14 @@ export interface EmbedConfig {
   /** Personality UUID. */
   personality: string | null;
   /**
-   * Theme name. The two named values drive the built-in palettes; the
-   * `(string & {})` escape keeps custom themes from being rejected by TS
-   * (they fall through to no-op styling until M6.6 wires real overrides).
+   * Theme name. The five named values drive the built-in palettes
+   * (see `src/styles/themes.data.ts`); the `(string & {})` escape
+   * keeps custom themes from being rejected by TS — they round-trip
+   * verbatim and the embed falls back to the default if unknown.
+   *
+   * Widened from 2 → 5 in M7.3.
    */
-  theme: "cozy-orange" | "calm-blue" | (string & {});
+  theme: ThemeName | (string & {});
   /** Initial message to send as soon as the widget is ready. */
   prefill: string | null;
   /**
@@ -70,8 +74,11 @@ export function parseEmbedConfig(search: string | null | undefined): EmbedConfig
   if (!search) return EMPTY_EMBED_CONFIG;
   const params = new URLSearchParams(search.startsWith("?") ? search : `?${search}`);
   const themeRaw = params.get("theme");
+  const knownThemes: readonly string[] = THEME_NAMES;
   const theme: EmbedConfig["theme"] =
-    themeRaw === "cozy-orange" || themeRaw === "calm-blue" ? themeRaw : (themeRaw ?? "cozy-orange");
+    themeRaw && knownThemes.includes(themeRaw)
+      ? themeRaw
+      : (themeRaw ?? "cozy-orange");
 
   return {
     key: params.get("key"),

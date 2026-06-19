@@ -1,5 +1,22 @@
+/*
+ * Theme tokens — source of truth lives in:
+ *   src/styles/themes.data.ts (typed, used by tests + embed registry)
+ *   src/styles/themes/*.css   (run-time, applied via attribute selectors)
+ *   src/styles/dark/*.css     (dark-mode overrides for the same themes)
+ *
+ * `tokens.css` is the barrel: it declares the *default* theme (cozy-orange,
+ * light) on `:root` so apps without any `data-theme` attribute still get
+ * the warm-orange palette, then `@import`s every alternative light theme.
+ *
+ * Tailwind v4 reads `--color-X` via `rgb(var(--color-X))` (see globals.css),
+ * so swapping the active preset is just a `data-theme`/`data-mode` change
+ * on `<html>` — no JavaScript color logic.
+ */
+
 :root {
-  /* Cozy Orange (default) */
+  /* Cozy Orange — default. Mirrors `themes/cozy-orange.css` exactly so the
+   * implicit (no `data-theme`) path matches the explicit
+   * `data-theme="cozy-orange"` path. */
   --color-bg: 250 250 249;
   --color-fg: 28 28 28;
   --color-muted: 245 245 244;
@@ -8,6 +25,8 @@
   --color-accent: 248 123 26; /* Cozy Orange #F87B1A */
   --color-accent-fg: 255 255 255;
   --color-accent-hover: 234 110 16;
+
+  /* Layout tokens — theme-independent. */
   --radius: 12px;
   --radius-sm: 8px;
   --radius-lg: 16px;
@@ -15,13 +34,11 @@
   --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.08);
 }
 
-.dark {
-  --color-bg: 23 23 23;
-  --color-fg: 245 245 244;
-  --color-muted: 38 38 38;
-  --color-muted-fg: 163 163 152;
-  --color-border: 64 64 64;
-  --color-accent: 251 146 60;
-  --color-accent-fg: 23 23 23;
-  --color-accent-hover: 253 158 82;
-}
+/* Attribute-scoped overrides for non-default themes.
+ * PostCSS resolves these `@import`s at build time; in dev they're fetched
+ * by Vite as separate CSS modules. */
+@import "./themes/cozy-orange.css";
+@import "./themes/calm-blue.css";
+@import "./themes/mint.css";
+@import "./themes/lavender.css";
+@import "./themes/mono.css";

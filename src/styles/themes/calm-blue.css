@@ -1,0 +1,15 @@
+/* Calm Blue — light mode.
+ *
+ * Tailwind blue-600 accent (#3B82F6) on a clean white surface.
+ * Source of truth: src/styles/themes.data.ts
+ */
+:root[data-theme="calm-blue"] {
+  --color-bg: 255 255 255;
+  --color-fg: 28 28 28;
+  --color-muted: 239 246 255;
+  --color-muted-fg: 59 130 246;
+  --color-border: 191 219 254;
+  --color-accent: 59 130 246;
+  --color-accent-fg: 255 255 255;
+  --color-accent-hover: 37 99 235;
+}

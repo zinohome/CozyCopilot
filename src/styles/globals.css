@@ -1,6 +1,16 @@
 @import "tailwindcss";
 @import "./tokens.css";
 
+/* Dark-mode overrides — orthogonal to the light themes in `tokens.css`.
+ * Each file uses `:root[data-theme="X"][data-mode="dark"]` so the two
+ * attributes compose: 5 themes × 2 modes = 10 distinct palettes from
+ * 5+2 selectors. */
+@import "./dark/cozy-orange.css";
+@import "./dark/calm-blue.css";
+@import "./dark/mint.css";
+@import "./dark/lavender.css";
+@import "./dark/mono.css";
+
 @theme {
   --color-bg: rgb(var(--color-bg));
   --color-fg: rgb(var(--color-fg));

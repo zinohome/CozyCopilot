@@ -1,0 +1,15 @@
+/* Calm Blue — dark mode.
+ *
+ * Slate-900 surface with blue-400 accent (#60A5FA) for AA contrast
+ * against the dark background. Source of truth: src/styles/themes.data.ts
+ */
+:root[data-theme="calm-blue"][data-mode="dark"] {
+  --color-bg: 15 23 42;
+  --color-fg: 248 250 252;
+  --color-muted: 30 41 59;
+  --color-muted-fg: 148 163 184;
+  --color-border: 51 65 85;
+  --color-accent: 96 165 250;
+  --color-accent-fg: 15 23 42;
+  --color-accent-hover: 59 130 246;
+}

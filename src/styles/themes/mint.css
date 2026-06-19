@@ -1,0 +1,15 @@
+/* Mint — light mode.
+ *
+ * Emerald-500 accent (#10B981) on a faint green-tinted surface.
+ * Source of truth: src/styles/themes.data.ts
+ */
+:root[data-theme="mint"] {
+  --color-bg: 247 254 250;
+  --color-fg: 20 40 30;
+  --color-muted: 220 252 231;
+  --color-muted-fg: 22 101 52;
+  --color-border: 187 247 208;
+  --color-accent: 16 185 129;
+  --color-accent-fg: 255 255 255;
+  --color-accent-hover: 5 150 105;
+}

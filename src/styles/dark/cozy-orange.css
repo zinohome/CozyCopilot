@@ -1,0 +1,16 @@
+/* Cozy Orange — dark mode.
+ *
+ * Orthogonal to `data-theme="cozy-orange"`; activated only when both
+ * `data-theme="cozy-orange"` and `data-mode="dark"` are set on <html>.
+ * Source of truth: src/styles/themes.data.ts
+ */
+:root[data-theme="cozy-orange"][data-mode="dark"] {
+  --color-bg: 23 23 23;
+  --color-fg: 245 245 244;
+  --color-muted: 38 38 38;
+  --color-muted-fg: 163 163 152;
+  --color-border: 64 64 64;
+  --color-accent: 251 146 60;
+  --color-accent-fg: 23 23 23;
+  --color-accent-hover: 253 158 82;
+}

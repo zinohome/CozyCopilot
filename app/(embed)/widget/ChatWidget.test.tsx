@@ -41,7 +41,10 @@ describe("ChatWidget", () => {
 
     // Composer is mounted as a real textbox (the M4 component).
     expect(screen.getByRole("textbox")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "发送" })).toBeInTheDocument();
+    // M7.5: the send button's accessible name is now "Send message"
+    // (the aria-label) — both English (assistive tech) and Chinese
+    // (visible text) describe the same action.
+    expect(screen.getByRole("button", { name: /send message/i })).toBeInTheDocument();
   });
 
   it("renders MessageList content for any messages already in the store", () => {
