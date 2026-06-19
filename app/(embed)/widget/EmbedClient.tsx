@@ -1,15 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ChatWidget } from "./ChatWidget";
 import { FloatingBubble } from "./FloatingBubble";
 import { useEmbedConfig } from "@/features/embed/useEmbedConfig";
+import { useEmbedTransport } from "@/features/embed/useEmbedTransport";
+import { useEmbedAuth } from "@/features/embed/useEmbedAuth";
 
 /**
- * M6.2: top-level wiring for the embed widget. Holds the open/closed
- * state machine, swaps `<FloatingBubble>` for `<ChatWidget>` (they
- * are NEVER both mounted at the same time — mounting both would
- * double-anchor the bottom-right corner and confuse screen readers).
+ * M6.2 + M6.4: top-level wiring for the embed widget. Holds the
+ * open/closed state machine, swaps `<FloatingBubble>` for
+ * `<ChatWidget>` (they are NEVER both mounted at the same time —
+ * mounting both would double-anchor the bottom-right corner and
+ * confuse screen readers).
+ *
+ * M6.4 additions: the transport and auth hooks. The widget only
+ * emits `cozy:ready` to the host after the BFF has exchanged the
+ * embed key for a JWT — the host page uses `cozy:ready` to know
+ * `window.CozyCopilot.send(...)` is safe to call.
  *
  * Sits between the static export page and the actual UI. Renders
  * nothing on the SSR pass (`useEmbedConfig` is SSR-safe) so the
@@ -18,9 +26,23 @@ import { useEmbedConfig } from "@/features/embed/useEmbedConfig";
 export function EmbedClient() {
   const config = useEmbedConfig();
   const [isOpen, setIsOpen] = useState(false);
+  const transport = useEmbedTransport({ parentOrigin: config.parentOrigin });
+  const auth = useEmbedAuth(config.key);
+
+  // M6.4: tell the host we're ready, but only AFTER the BFF has
+  // accepted the key. The host gates `window.CozyCopilot.send(...)`
+  // on `cozy:ready` so a premature emit would silently drop messages.
+  useEffect(() => {
+    if (auth.status !== "authenticated") return;
+    transport.emit({ type: "cozy:ready", version: "0.1.0" });
+  }, [auth.status, transport]);
 
   return isOpen ? (
-    <ChatWidget config={config} onClose={() => setIsOpen(false)} />
+    <ChatWidget
+      config={config}
+      onClose={() => setIsOpen(false)}
+      transport={transport}
+    />
   ) : (
     <FloatingBubble onClick={() => setIsOpen(true)} />
   );

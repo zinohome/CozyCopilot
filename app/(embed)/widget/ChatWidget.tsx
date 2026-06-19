@@ -1,42 +1,98 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { Composer } from "@/features/chat/Composer";
 import { MessageList } from "@/features/chat/MessageList";
 import { useSessionStore } from "@/stores/session";
 import type { EmbedConfig } from "@/features/embed/useEmbedConfig";
+import type { UseEmbedTransport } from "@/features/embed/useEmbedTransport";
 
 export interface ChatWidgetProps {
   /** Query-string config captured by the parent (EmbedClient). */
   config: EmbedConfig;
-  /** Called when the user clicks the panel's close button. */
+  /** Called when the user clicks the panel's close button OR the host
+   *  posts a `host:close` message. */
   onClose: () => void;
+  /** M6.4: transport hook instance. The widget listens for host
+   *  commands (`host:prefill`, `host:clear`, `host:set_personality`,
+   *  `host:close`) and emits `cozy:session_started` on first send. */
+  transport: UseEmbedTransport;
 }
 
 /**
- * M6.2: the expanded chat panel. Single-conversation UI — the embed
- * widget does NOT show a sidebar or session picker. The session and
- * personality are fixed by the URL the host page passed in; for M6.2
- * the user can still type into the composer but the network transport
- * is stubbed (the real postMessage / JWT wiring lands in M6.4).
+ * M6.2 + M6.4: the expanded chat panel. Single-conversation UI — the
+ * embed widget does NOT show a sidebar or session picker. The
+ * session and personality are fixed by the URL the host page passed
+ * in; the M6.4 transport listens for `host:set_personality` so the
+ * host can swap personalities at runtime.
  *
  * Layout: 380×560 fixed panel anchored bottom-right, header with a
  * close button, scrollable `<MessageList>`, sticky `<Composer>` at
  * the bottom.
  */
-export function ChatWidget({ config, onClose }: ChatWidgetProps) {
+export function ChatWidget({ config, onClose, transport }: ChatWidgetProps) {
   // Read the message stream from the same M4 store the main chat page
   // uses, so an existing embedded session (e.g. left open across a
   // navigation) keeps its history. The store is page-level; the embed
   // page mounts a fresh store instance per iframe.
   const messages = useSessionStore((s) => s.messages);
+  const activeSessionId = useSessionStore((s) => s.activeSessionId);
+  const activePersonalityId = useSessionStore((s) => s.activePersonalityId);
 
-  // M6.2 stub: the real transport is wired in M6.4 (postMessage to the
-  // host page, which talks to its own auth + chat backend). For now we
-  // just log to the console so the UI is interactively testable.
-  async function handleSend(_text: string): Promise<void> {
-    // M6.2 stub: in production this forwards to the host via postMessage
-    // (M6.4). For now we just log so the panel is interactively testable.
-    console.log("[embed] send", { personality: config.personality, key: config.key });
+  // M6.4: lift the composer's text into widget state so `host:prefill`
+  // can address it. We mirror the composer's internal `text` state
+  // here and pass it down as a controlled value.
+  const [composerText, setComposerText] = useState<string>(config.prefill ?? "");
+  const sessionStartedRef = useRef(false);
+
+  // M6.4: register host → widget listeners. Each `on(...)` returns an
+  // unsubscribe that we detach on unmount. The handlers below are the
+  // small set the loader documents as the host API surface. The
+  // transport's `on()` callback passes the full `CozyInboundMessage`
+  // union; TypeScript can't narrow the discriminator from the generic
+  // parameter alone, so each handler reconstructs the narrower shape
+  // via a local type assertion.
+  useEffect(() => {
+    const offClose = transport.on("host:close", () => {
+      onClose();
+    });
+    const offClear = transport.on("host:clear", () => {
+      useSessionStore.getState().clear();
+    });
+    const offPersonality = transport.on("host:set_personality", (msg) => {
+      useSessionStore
+        .getState()
+        .setActivePersonality((msg as { personality: string }).personality);
+    });
+    const offPrefill = transport.on("host:prefill", (msg) => {
+      setComposerText((msg as { content: string }).content);
+    });
+    return () => {
+      offClose();
+      offClear();
+      offPersonality();
+      offPrefill();
+    };
+  }, [onClose, transport]);
+
+  async function handleSend(text: string): Promise<void> {
+    // M6.4: notify the host that a session was just kicked off. We
+    // emit at most once per widget mount — repeated sends don't
+    // re-fire the lifecycle event, only `cozy:tool_call` /
+    // `cozy:tool_result` events do.
+    if (!sessionStartedRef.current) {
+      sessionStartedRef.current = true;
+      transport.emit({
+        type: "cozy:session_started",
+        sessionId: activeSessionId ?? "embed-session",
+        personalityId: activePersonalityId ?? config.personality ?? "default",
+      });
+    }
+    // Clear the controlled composer text after a successful send.
+    setComposerText("");
+    // M6.4: real chat transport is wired in a later milestone. For
+    // now we log so the panel is interactively testable in isolation.
+    console.log("[embed] send", { personality: config.personality, key: config.key, text });
   }
 
   return (
@@ -72,6 +128,12 @@ export function ChatWidget({ config, onClose }: ChatWidgetProps) {
         <Composer
           onSend={handleSend}
           disabled={!config.key}
+          // Controlled-mode wiring (M6.4): the widget owns the
+          // composer's text so `host:prefill` can address it. Without
+          // these props the composer would maintain its own internal
+          // state and `host:prefill` would have no effect.
+          value={composerText}
+          onTextChange={setComposerText}
           // The session/personality are not yet created in M6.2 — they
           // come from the parent in M6.4. Pass nothing so the composer
           // renders in its text-only mode (no uploads, no voice).

@@ -1,8 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, renderHook } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ChatWidget } from "./ChatWidget";
 import type { EmbedConfig } from "@/features/embed/useEmbedConfig";
+import { useEmbedTransport } from "@/features/embed/useEmbedTransport";
 
 const baseConfig: EmbedConfig = {
   key: "ck_test",
@@ -13,9 +14,22 @@ const baseConfig: EmbedConfig = {
   parentOrigin: null,
 };
 
+/**
+ * Build a real transport hook instance. The widget tests don't need
+ * to assert transport behavior — they just need a working handle so
+ * the `useEffect` listeners can register and clean up. We mount the
+ * hook via `renderHook` so React tracks its lifecycle properly.
+ */
+function useTestTransport() {
+  return useEmbedTransport({ parentOrigin: null });
+}
+
 describe("ChatWidget", () => {
   it("renders the dialog with header, MessageList, and Composer (smoke test)", () => {
-    render(<ChatWidget config={baseConfig} onClose={vi.fn()} />);
+    const { result } = renderHook(() => useTestTransport());
+    render(
+      <ChatWidget config={baseConfig} onClose={vi.fn()} transport={result.current} />,
+    );
 
     // Header / dialog scaffolding
     expect(screen.getByTestId("chat-widget")).toBeInTheDocument();
@@ -34,18 +48,31 @@ describe("ChatWidget", () => {
     // M4 store is module-level — other tests in the file may have
     // appended to it. Use the current snapshot rather than asserting
     // an exact list; we only care that the component wires the list in.
-    render(<ChatWidget config={baseConfig} onClose={vi.fn()} />);
+    const { result } = renderHook(() => useTestTransport());
+    render(
+      <ChatWidget config={baseConfig} onClose={vi.fn()} transport={result.current} />,
+    );
     expect(screen.getByTestId("chat-widget-scroll")).toBeInTheDocument();
   });
 
   it("surfaces the configured theme in the header", () => {
-    render(<ChatWidget config={{ ...baseConfig, theme: "calm-blue" }} onClose={vi.fn()} />);
+    const { result } = renderHook(() => useTestTransport());
+    render(
+      <ChatWidget
+        config={{ ...baseConfig, theme: "calm-blue" }}
+        onClose={vi.fn()}
+        transport={result.current}
+      />,
+    );
     expect(screen.getByTestId("chat-widget-theme")).toHaveTextContent("calm-blue");
   });
 
   it("fires onClose when the close button is clicked", async () => {
     const onClose = vi.fn();
-    render(<ChatWidget config={baseConfig} onClose={onClose} />);
+    const { result } = renderHook(() => useTestTransport());
+    render(
+      <ChatWidget config={baseConfig} onClose={onClose} transport={result.current} />,
+    );
 
     await userEvent.click(screen.getByTestId("chat-widget-close"));
 
@@ -53,7 +80,14 @@ describe("ChatWidget", () => {
   });
 
   it("disables the composer when the config has no key (no auth in M6.2)", () => {
-    render(<ChatWidget config={{ ...baseConfig, key: null }} onClose={vi.fn()} />);
+    const { result } = renderHook(() => useTestTransport());
+    render(
+      <ChatWidget
+        config={{ ...baseConfig, key: null }}
+        onClose={vi.fn()}
+        transport={result.current}
+      />,
+    );
     expect(screen.getByRole("textbox")).toBeDisabled();
   });
 });

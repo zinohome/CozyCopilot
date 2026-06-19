@@ -26,6 +26,16 @@ export interface ComposerProps {
    * thread the ids through just to keep the legacy text-only behavior.
    */
   voiceEnabled?: boolean;
+  /**
+   * M6.4: optional controlled-mode wiring. When provided, the composer
+   * treats `value` as the source of truth and reports typing via
+   * `onTextChange`. Existing callers (M4 / M5) leave both unset and
+   * the composer keeps its own internal state — no breaking change.
+   * The embed widget passes these so `host:prefill` can address the
+   * textarea from outside.
+   */
+  value?: string;
+  onTextChange?: (next: string) => void;
 }
 
 export function Composer({
@@ -35,8 +45,24 @@ export function Composer({
   personalityId,
   onUploaded,
   voiceEnabled = false,
+  value,
+  onTextChange,
 }: ComposerProps) {
-  const [text, setText] = useState("");
+  // Controlled-mode switch: when the parent provides `value`, the
+  // composer uses that as the source of truth and pipes edits back
+  // through `onTextChange`. Without those props we fall back to the
+  // internal state machine so existing callers don't need to thread
+  // anything new.
+  const [internalText, setInternalText] = useState("");
+  const isControlled = value !== undefined && onTextChange !== undefined;
+  const text = isControlled ? (value as string) : internalText;
+  const setText = (next: string): void => {
+    if (isControlled) {
+      onTextChange!(next);
+    } else {
+      setInternalText(next);
+    }
+  };
   const [sending, setSending] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
 
