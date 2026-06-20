@@ -13,3 +13,8 @@ src-tauri/target/
 ios/Pods/
 android/app/build/
 *.tsbuildinfo
+
+# Tool runtime debris (do not commit)
+.remember/
+.claude/
+.codegraph/
